@@ -1,0 +1,247 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ===== Base Styles ===== */
+:root {
+  --neon-cyan: #00E5FF;
+  --neon-purple: #7C3AED;
+  --neon-blue: #06B6D4;
+  --dark-bg: #0A0A0F;
+  --dark-surface: #12121A;
+  --dark-card: #1A1A2E;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: #ffffff;
+  background: var(--dark-bg);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ===== Glass Card ===== */
+@layer components {
+  .glass-card {
+    @apply relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04];
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    @apply border-white/[0.15] bg-white/[0.06];
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 0 30px rgba(0, 229, 255, 0.05);
+    transform: translateY(-2px);
+  }
+
+  /* Neon Text Gradient */
+  .neon-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #00E5FF 0%, #7C3AED 100%);
+  }
+
+  .neon-text-reverse {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #7C3AED 0%, #00E5FF 100%);
+  }
+
+  /* Neon Button */
+  .neon-button {
+    @apply relative px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300;
+    background: linear-gradient(135deg, #00E5FF 0%, #7C3AED 100%);
+    box-shadow: 0 4px 15px rgba(0, 229, 255, 0.3);
+  }
+
+  .neon-button:hover {
+    @apply shadow-lg;
+    box-shadow: 0 6px 25px rgba(0, 229, 255, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .neon-button:active {
+    transform: translateY(0px);
+  }
+
+  .neon-button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Neon Button Outline */
+  .neon-button-outline {
+    @apply relative px-6 py-3 rounded-xl font-semibold transition-all duration-300;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    color: #00E5FF;
+    background: transparent;
+  }
+
+  .neon-button-outline:hover {
+    @apply bg-neon-cyan/10;
+    border-color: rgba(0, 229, 255, 0.5);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+  }
+
+  /* Neon Input */
+  .neon-input {
+    @apply w-full px-4 py-3 rounded-xl text-white placeholder-zinc-500 transition-all duration-300;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    outline: none;
+  }
+
+  .neon-input:focus {
+    @apply bg-white/[0.06];
+    border-color: rgba(0, 229, 255, 0.4);
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);
+  }
+
+  /* Glow Border Animation */
+  .glow-border {
+    position: relative;
+  }
+
+  .glow-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.3), rgba(124, 58, 237, 0.3));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .glow-border:hover::before {
+    opacity: 1;
+  }
+
+  /* Stat Card */
+  .stat-card {
+    @apply glass-card p-6 flex flex-col items-center gap-2;
+  }
+
+  /* Dropzone */
+  .neon-dropzone {
+    @apply relative rounded-2xl border-2 border-dashed p-10 text-center transition-all duration-300;
+    border-color: rgba(0, 229, 255, 0.15);
+    background: rgba(0, 229, 255, 0.02);
+  }
+
+  .neon-dropzone:hover,
+  .neon-dropzone-active {
+    @apply border-neon-cyan/40 bg-neon-cyan/5;
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.05);
+  }
+
+  /* Chat Message */
+  .chat-message-user {
+    @apply ml-auto rounded-2xl rounded-br-md px-4 py-3 max-w-[80%];
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(124, 58, 237, 0.15));
+    border: 1px solid rgba(0, 229, 255, 0.1);
+  }
+
+  .chat-message-ai {
+    @apply mr-auto rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%];
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ===== Background Grid Pattern ===== */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ===== Ambient Background Orbs ===== */
+.ambient-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambient-orb-1 {
+  width: 600px;
+  height: 600px;
+  top: -200px;
+  right: -200px;
+  background: var(--neon-cyan);
+}
+
+.ambient-orb-2 {
+  width: 500px;
+  height: 500px;
+  bottom: -150px;
+  left: -150px;
+  background: var(--neon-purple);
+}
+
+/* ===== Selection ===== */
+::selection {
+  background: rgba(0, 229, 255, 0.3);
+  color: white;
+}
+
+/* ===== Reown AppKit Modal Overrides ===== */
+w3m-modal {
+  --w3m-accent-color: #00E5FF !important;
+  --w3m-color-bg-1: #0A0A0F !important;
+  --w3m-color-bg-2: #12121A !important;
+  --w3m-color-bg-3: #1a1a2e !important;
+  --w3m-border-radius-master: 16px !important;
+}
+
+w3m-button {
+  --w3m-accent-color: #00E5FF !important;
+}
+
+/* Make the connect button blend with the nav */
+appkit-button button {
+  border-radius: 12px !important;
+  font-weight: 500 !important;
+}

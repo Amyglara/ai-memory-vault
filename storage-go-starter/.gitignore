@@ -1,0 +1,41 @@
+# Environment variables
+.env
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Swagger generated files
+/docs
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+
+# Binary files
+bin/
+dist/
+
+# Debug files
+debug/
+
+# Log files
+*.log
+
+# CodeSandbox specific
+.codesandbox/
+.npm/
+.cache/
