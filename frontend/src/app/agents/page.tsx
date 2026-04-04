@@ -21,6 +21,7 @@ import {
   FileStack,
 } from "lucide-react";
 import { useAccount } from "wagmi";
+import { useI18n } from "@/context";
 import {
   registerAgent,
   linkFileToAgent,
@@ -33,6 +34,7 @@ import {
   MEMORY_VAULT_ADDRESS,
 } from "@/lib/contracts";
 import { EXPLORER_URL } from "@/lib/config";
+import type { TranslationKey } from "@/lib/i18n";
 import { cn, truncateHash, truncateAddress, timeAgo } from "@/lib/utils";
 
 // ===== Types =====
@@ -55,6 +57,7 @@ interface UserFile {
 
 export default function AgentsPage() {
   const { isConnected, address } = useAccount();
+  const { t } = useI18n();
 
   // UI state
   const [showRegisterForm, setShowRegisterForm] = useState(false);
@@ -164,7 +167,7 @@ export default function AgentsPage() {
 
   const handleRegister = useCallback(async () => {
     if (!regName.trim()) {
-      setError("Agent name is required");
+      setError(t("agents.agentNameRequired"));
       return;
     }
 
@@ -176,7 +179,7 @@ export default function AgentsPage() {
       const memoryRoot = regMemoryRoot.trim() || "0x0000000000000000000000000000000000000000000000000000000000000000";
       const txHash = await registerAgent(regName.trim(), regDesc.trim(), memoryRoot);
 
-      setSuccessMsg(`Agent "${regName}" registered! TX: ${truncateHash(txHash, 8, 6)}`);
+      setSuccessMsg(t("agents.registerSuccess", { name: regName, txHash: truncateHash(txHash, 8, 6) }));
       setRegName("");
       setRegDesc("");
       setRegMemoryRoot("");
@@ -185,11 +188,11 @@ export default function AgentsPage() {
       // Reload agents
       await loadAgents();
     } catch (err: any) {
-      setError(err?.shortMessage || err?.message || "Failed to register agent");
+      setError(err?.shortMessage || err?.message || t("agents.failedRegister"));
     } finally {
       setRegistering(false);
     }
-  }, [regName, regDesc, regMemoryRoot, loadAgents]);
+  }, [regName, regDesc, regMemoryRoot, loadAgents, t]);
 
   // ===== Link File to Agent =====
 
@@ -199,7 +202,7 @@ export default function AgentsPage() {
 
       try {
         await linkFileToAgent(fileId, agentId);
-        setSuccessMsg(`File linked to agent!`);
+        setSuccessMsg(t("agents.fileLinked"));
 
         // Reload agent files
         setAgents((prev) =>
@@ -218,10 +221,10 @@ export default function AgentsPage() {
           })
         );
       } catch (err: any) {
-        setError(err?.shortMessage || err?.message || "Failed to link file");
+        setError(err?.shortMessage || err?.message || t("agents.failedLink"));
       }
     },
-    []
+    [t]
   );
 
   // ===== Render =====
@@ -232,10 +235,10 @@ export default function AgentsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white mb-2">
-            <span className="neon-text">Agent</span> Identity
+            <span className="neon-text">{t("agents.title").split(" ")[0]}</span> {t("agents.title").split(" ").slice(1).join(" ")}
           </h1>
           <p className="text-zinc-400 text-sm">
-            Register and manage AI agent identities on 0G Chain
+            {t("agents.subtitle")}
           </p>
         </div>
         {isConnected && (
@@ -249,12 +252,12 @@ export default function AgentsPage() {
             {showRegisterForm ? (
               <>
                 <XCircle className="w-4 h-4" />
-                Cancel
+                {t("agents.cancelBtn")}
               </>
             ) : (
               <>
                 <Plus className="w-4 h-4" />
-                Register Agent
+                {t("agents.registerBtn")}
               </>
             )}
           </button>
@@ -265,10 +268,10 @@ export default function AgentsPage() {
         <div className="glass-card p-12 text-center">
           <Bot className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-zinc-300 mb-2">
-            Connect Wallet First
+            {t("agents.connectWallet")}
           </h3>
           <p className="text-zinc-500 text-sm">
-            You need to connect your wallet to manage agents
+            {t("agents.connectWalletHint")}
           </p>
         </div>
       ) : (
@@ -309,7 +312,7 @@ export default function AgentsPage() {
                   <Bot className="w-4 h-4 text-neon-cyan" />
                 </div>
                 <h2 className="text-base font-semibold text-white">
-                  Register New Agent
+                  {t("agents.registerNew")}
                 </h2>
               </div>
 
@@ -317,13 +320,13 @@ export default function AgentsPage() {
                 {/* Name */}
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-                    Agent Name <span className="text-red-400">*</span>
+                    {t("agents.agentName")} <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
-                    placeholder="e.g. Research Assistant, Trading Bot..."
+                    placeholder={t("agents.agentNamePlaceholder")}
                     className="neon-input"
                     maxLength={100}
                   />
@@ -332,12 +335,12 @@ export default function AgentsPage() {
                 {/* Description */}
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-                    Description
+                    {t("agents.description")}
                   </label>
                   <textarea
                     value={regDesc}
                     onChange={(e) => setRegDesc(e.target.value)}
-                    placeholder="Describe what this AI agent does..."
+                    placeholder={t("agents.descriptionPlaceholder")}
                     className="neon-input resize-none"
                     rows={3}
                     maxLength={500}
@@ -350,19 +353,19 @@ export default function AgentsPage() {
                 {/* Memory Root */}
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-                    Memory Root Hash{" "}
-                    <span className="text-zinc-600">(optional)</span>
+                    {t("agents.memoryRoot")}{" "}
+                    <span className="text-zinc-600">{t("agents.memoryRootOptional")}</span>
                   </label>
                   <input
                     type="text"
                     value={regMemoryRoot}
                     onChange={(e) => setRegMemoryRoot(e.target.value)}
-                    placeholder="0x0000... (defaults to zero hash)"
+                    placeholder={t("agents.memoryRootPlaceholder")}
                     className="neon-input font-mono text-sm"
                     maxLength={66}
                   />
                   <p className="text-xs text-zinc-600 mt-1">
-                    Links agent to a specific memory root on 0G Storage
+                    {t("agents.memoryRootHint")}
                   </p>
                 </div>
 
@@ -375,12 +378,12 @@ export default function AgentsPage() {
                   {registering ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Registering...
+                      {t("agents.registering")}
                     </>
                   ) : (
                     <>
                       <Zap className="w-4 h-4" />
-                      Register Agent On-Chain
+                      {t("agents.registerOnChain")}
                     </>
                   )}
                 </button>
@@ -392,7 +395,7 @@ export default function AgentsPage() {
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-zinc-400">
-                My Agents
+                {t("agents.myAgents")}
                 {agents.length > 0 && (
                   <span className="ml-2 px-2 py-0.5 rounded-full bg-white/[0.06] text-xs text-zinc-500">
                     {agents.length}
@@ -405,7 +408,7 @@ export default function AgentsPage() {
                   className="text-xs text-zinc-500 hover:text-neon-cyan transition-colors flex items-center gap-1"
                 >
                   <Cpu className="w-3 h-3" />
-                  Refresh
+                  {t("nav.refresh")}
                 </button>
               )}
             </div>
@@ -413,14 +416,14 @@ export default function AgentsPage() {
             {loading ? (
               <div className="text-center py-12">
                 <Loader2 className="w-8 h-8 text-neon-cyan animate-spin mx-auto mb-3" />
-                <p className="text-sm text-zinc-400">Loading agents...</p>
+                <p className="text-sm text-zinc-400">{t("agents.loadingAgents")}</p>
               </div>
             ) : agents.length === 0 ? (
               <div className="text-center py-12 text-zinc-500">
                 <Bot className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                <p className="text-sm">No agents registered yet</p>
+                <p className="text-sm">{t("agents.noAgents")}</p>
                 <p className="text-xs mt-1">
-                  Click &quot;Register Agent&quot; to create your first AI agent identity
+                  {t("agents.noAgentsHint")}
                 </p>
               </div>
             ) : (
@@ -448,7 +451,7 @@ export default function AgentsPage() {
               rel="noopener noreferrer"
               className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors inline-flex items-center gap-1"
             >
-              View MemoryVault Contract
+              {t("agents.viewContract")}
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>
@@ -477,6 +480,7 @@ function AgentCard({
 }) {
   const { id, data, files, expanded } = agent;
   const isLinking = linkingAgentId === id;
+  const { t } = useI18n();
 
   // Convert timestamp to readable date
   const registeredDate = new Date(Number(data.registeredAt) * 1000);
@@ -513,11 +517,11 @@ function AgentCard({
             </p>
             {data.active ? (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Active
+                {t("agents.active")}
               </span>
             ) : (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-500/10 text-zinc-500 border border-zinc-500/20">
-                Inactive
+                {t("agents.inactive")}
               </span>
             )}
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-600 bg-white/[0.04]">
@@ -538,7 +542,7 @@ function AgentCard({
             </span>
             <span className="text-[11px] text-zinc-600 flex items-center gap-1">
               <FileStack className="w-3 h-3" />
-              {fileCount} file{fileCount !== 1 ? "s" : ""}
+              {fileCount} {t("agents.files")}
             </span>
             <span className="text-[11px] text-zinc-600 font-mono">
               {truncateAddress(data.owner)}
@@ -561,15 +565,15 @@ function AgentCard({
         <div className="border-t border-white/[0.06] animate-fade-in">
           {/* Agent Details Grid */}
           <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <DetailItem label="Agent ID" value={`#${String(id)}`} mono />
+            <DetailItem label={t("agents.agentId")} value={`#${String(id)}`} mono />
             <DetailItem
-              label="Registered"
+              label={t("agents.registered")}
               value={registeredDate.toLocaleDateString()}
             />
             <DetailItem
-              label="Memory Root"
+              label={t("agents.memoryRootField")}
               value={data.memoryRoot === "0x0000000000000000000000000000000000000000000000000000000000000000"
-                ? "Not set"
+                ? t("agents.notSet")
                 : truncateHash(data.memoryRoot, 10, 8)
               }
               mono
@@ -580,17 +584,17 @@ function AgentCard({
           <div className="px-4 pb-2">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-zinc-500">
-                Linked Files ({files.length})
+                {t("agents.linkedFiles")} ({files.length})
               </span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onToggleExpand(); // Re-trigger to open link modal
+                  onToggleExpand();
                 }}
                 className="text-xs text-neon-cyan hover:text-neon-cyan/80 transition-colors flex items-center gap-1"
               >
                 <Link2 className="w-3 h-3" />
-                Link File
+                {t("agents.linkFile")}
               </button>
             </div>
 
@@ -598,7 +602,7 @@ function AgentCard({
               <div className="text-center py-4 rounded-lg bg-white/[0.02] border border-white/[0.04]">
                 <FileText className="w-5 h-5 text-zinc-700 mx-auto mb-1.5" />
                 <p className="text-xs text-zinc-600">
-                  No files linked yet
+                  {t("agents.noFilesLinked")}
                 </p>
               </div>
             ) : (
@@ -679,21 +683,16 @@ function LinkFileModal({
   onClose: () => void;
   onLinkFile: (rootHash: string) => void;
 }) {
-  // Filter only anchored files
-  const anchoredFiles = userFiles.filter((f) => {
-    const stored = localStorage.getItem(
-      `vault_files_${typeof window !== "undefined" ? "unknown" : ""}`
-    );
-    // Simple heuristic: files that have been uploaded recently
-    return true; // Show all files; user knows which are anchored
-  });
+  const { t } = useI18n();
+
+  const anchoredFiles = userFiles.filter(() => true);
 
   return (
     <div className="p-4 border-t border-white/[0.06] bg-neon-cyan/[0.02] animate-fade-in">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium text-neon-cyan flex items-center gap-1.5">
           <Link2 className="w-3.5 h-3.5" />
-          Link a File to this Agent
+          {t("agents.linkFileToAgent")}
         </span>
         <button
           onClick={onClose}
@@ -706,7 +705,7 @@ function LinkFileModal({
       {userFiles.length === 0 ? (
         <div className="text-center py-4">
           <p className="text-xs text-zinc-500">
-            No uploaded files found. Upload files first on the Upload page.
+            {t("agents.noFilesFound")}
           </p>
         </div>
       ) : (

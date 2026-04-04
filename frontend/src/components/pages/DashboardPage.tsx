@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useAccount, useBalance } from "wagmi";
-import { useNetwork } from "@/context";
+import { useNetwork, useI18n } from "@/context";
 import {
   Brain,
   Upload,
@@ -44,6 +44,7 @@ export default function DashboardPage() {
     chainId: 16602,
   });
   const { networkType } = useNetwork();
+  const { t, locale } = useI18n();
 
   const [stats, setStats] = useState<ChainStats>({
     totalFiles: 0,
@@ -124,11 +125,11 @@ export default function DashboardPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-4">
             <div className="px-3 py-1 rounded-full text-xs font-medium bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20">
-              {networkType === "turbo" ? "🐇 Turbo" : "🐢 Standard"} Network
+              {networkType === "turbo" ? t("common.turbo") : t("common.standard")} Network
             </div>
             {!isConnected && (
               <div className="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                Wallet Not Connected
+                {t("nav.walletNotConnected")}
               </div>
             )}
             {isConnected && (
@@ -142,23 +143,22 @@ export default function DashboardPage() {
                 ) : (
                   <Zap className="w-3 h-3" />
                 )}
-                Refresh
+                {t("nav.refresh")}
               </button>
             )}
           </div>
 
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-            <span className="neon-text">AI Memory Vault</span>
+            <span className="neon-text">{t("dashboard.hero.title")}</span>
           </h1>
           <p className="text-zinc-400 text-lg max-w-2xl mb-8">
-            Store AI agent memories and knowledge on 0G decentralized storage.
-            Powered by 0G Storage, 0G Compute, and 0G Chain.
+            {t("dashboard.hero.description")}
           </p>
 
           <div className="flex flex-wrap gap-3">
             {!isConnected ? (
               <p className="text-zinc-500 text-sm">
-                Connect your wallet to get started →
+                {t("dashboard.hero.connectHint")}
               </p>
             ) : (
               <>
@@ -167,14 +167,14 @@ export default function DashboardPage() {
                   className="neon-button flex items-center gap-2"
                 >
                   <Upload className="w-4 h-4" />
-                  Upload Memory
+                  {t("dashboard.hero.uploadMemory")}
                 </Link>
                 <Link
                   href="/chat"
                   className="neon-button-outline flex items-center gap-2"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  Start AI Chat
+                  {t("dashboard.hero.startChat")}
                 </Link>
               </>
             )}
@@ -186,98 +186,102 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Database}
-          label="Stored Files"
+          label={t("dashboard.stats.storedFiles")}
           value={stats.loading ? "..." : String(stats.totalFiles)}
           sublabel={
             isConnected && stats.myFiles > 0
-              ? `${stats.myFiles} yours`
+              ? t("dashboard.stats.yours", { count: stats.myFiles })
               : "0G Storage"
           }
           color="cyan"
         />
         <StatCard
           icon={Bot}
-          label="AI Agents"
+          label={t("dashboard.stats.aiAgents")}
           value={stats.loading ? "..." : String(stats.totalAgents)}
           sublabel={
             isConnected && stats.myAgents > 0
-              ? `${stats.myAgents} yours`
+              ? t("dashboard.stats.yours", { count: stats.myAgents })
               : "0G Chain"
           }
           color="purple"
         />
         <StatCard
           icon={MessageSquare}
-          label="Conversations"
+          label={t("dashboard.stats.conversations")}
           value={isConnected ? String(conversationCount) : "—"}
           sublabel="0G Compute"
           color="blue"
         />
         <StatCard
           icon={Brain}
-          label="Network"
+          label={t("dashboard.stats.network")}
           value="0G"
-          sublabel="Galileo Testnet"
+          sublabel={t("dashboard.stats.galileoTestnet")}
           color="cyan"
         />
       </section>
 
       {/* Quick Actions */}
       <section>
-        <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">{t("dashboard.quickActions")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <QuickAction
             href="/upload"
             icon={Upload}
-            title="Upload Document"
-            description="Store knowledge to 0G decentralized storage"
+            title={t("dashboard.quickActions.uploadDoc")}
+            description={t("dashboard.quickActions.uploadDesc")}
             disabled={!isConnected}
           />
           <QuickAction
             href="/chat"
             icon={MessageSquare}
-            title="AI Conversation"
-            description="Chat with AI using 0G Compute LLM"
+            title={t("dashboard.quickActions.aiConversation")}
+            description={t("dashboard.quickActions.aiConversationDesc")}
             disabled={!isConnected}
           />
           <QuickAction
             href="/agents"
             icon={Bot}
-            title="Manage Agents"
-            description="Register and manage on-chain AI agent identities"
+            title={t("dashboard.quickActions.manageAgents")}
+            description={t("dashboard.quickActions.manageAgentsDesc")}
             disabled={!isConnected}
           />
           <QuickAction
             href="https://docs.0g.ai"
             icon={FileText}
-            title="0G Documentation"
-            description="Learn about 0G Network"
+            title={t("dashboard.quickActions.docs")}
+            description={t("dashboard.quickActions.docsDesc")}
             external
+            goLabel={t("dashboard.quickActions.openDocs")}
           />
         </div>
       </section>
 
       {/* How It Works */}
       <section>
-        <h2 className="text-lg font-semibold text-white mb-4">How It Works</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">{t("dashboard.howItWorks")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StepCard
             step={1}
             icon={Shield}
-            title="Upload & Store"
-            description="Upload documents to 0G decentralized storage. Merkle root hash anchors data integrity on-chain."
+            title={t("dashboard.howItWorks.step1.title")}
+            description={t("dashboard.howItWorks.step1.desc")}
+            stepLabel="STEP"
           />
           <StepCard
             step={2}
             icon={Cpu}
-            title="AI Reasoning"
-            description="0G Compute powers LLM inference with RAG. AI retrieves stored knowledge to enhance conversations."
+            title={t("dashboard.howItWorks.step2.title")}
+            description={t("dashboard.howItWorks.step2.desc")}
+            stepLabel="STEP"
           />
           <StepCard
             step={3}
             icon={Zap}
-            title="On-chain Identity"
-            description="Register AI agents on 0G Chain. Link memories to agent identities for verifiable AI history."
+            title={t("dashboard.howItWorks.step3.title")}
+            description={t("dashboard.howItWorks.step3.desc")}
+            stepLabel="STEP"
           />
         </div>
       </section>
@@ -327,6 +331,7 @@ function QuickAction({
   description,
   disabled = false,
   external = false,
+  goLabel,
 }: {
   href: string;
   icon: React.ElementType;
@@ -334,11 +339,14 @@ function QuickAction({
   description: string;
   disabled?: boolean;
   external?: boolean;
+  goLabel?: string;
 }) {
   const Wrapper = external ? "a" : Link;
   const wrapperProps = external
     ? { href, target: "_blank", rel: "noopener noreferrer" }
     : { href };
+
+  const { t } = useI18n();
 
   return (
     <Wrapper {...(wrapperProps as any)}>
@@ -355,7 +363,7 @@ function QuickAction({
           <p className="text-xs text-zinc-500 mt-1">{description}</p>
         </div>
         <div className="flex items-center gap-1 text-xs text-neon-cyan font-medium">
-          {external ? "Open docs" : "Go to page"}
+          {external ? (goLabel || t("dashboard.quickActions.openDocs")) : (goLabel || t("dashboard.quickActions.goToPage"))}
           <ArrowRight className="w-3 h-3" />
         </div>
       </div>
@@ -368,11 +376,13 @@ function StepCard({
   icon: Icon,
   title,
   description,
+  stepLabel,
 }: {
   step: number;
   icon: React.ElementType;
   title: string;
   description: string;
+  stepLabel: string;
 }) {
   return (
     <div className="glass-card p-6 relative overflow-hidden">
@@ -384,7 +394,7 @@ function StepCard({
           <div className="w-10 h-10 rounded-lg bg-neon-glow flex items-center justify-center">
             <Icon className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xs font-mono text-zinc-500">STEP {step}</span>
+          <span className="text-xs font-mono text-zinc-500">{stepLabel} {step}</span>
         </div>
         <h3 className="text-base font-semibold text-white mb-2">{title}</h3>
         <p className="text-sm text-zinc-400 leading-relaxed">{description}</p>

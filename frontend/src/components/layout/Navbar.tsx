@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount, useBalance, useDisconnect } from "wagmi";
 import { truncateAddress } from "@/lib/utils";
+import { useI18n } from "@/context";
+import type { TranslationKey } from "@/lib/i18n";
 import {
   Brain,
   Upload,
@@ -15,42 +17,9 @@ import {
   Wallet,
   LogOut,
   ChevronDown,
+  Languages,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const navLinks = [
-  { href: "/", label: "Dashboard", icon: Brain },
-  { href: "/upload", label: "Upload", icon: Upload },
-  { href: "/chat", label: "AI Chat", icon: MessageSquare },
-  { href: "/agents", label: "Agents", icon: Bot },
-];
-
-/**
- * Hook to access the Reown AppKit modal open/close functions.
- * Uses the exported `modal` singleton from @reown/appkit/react.
- */
-function useReownModal() {
-  const [modalApi, setModalApi] = useState<{
-    open: (opts?: any) => Promise<any>;
-    close: () => Promise<any>;
-  } | null>(null);
-
-  useEffect(() => {
-    // Import the modal singleton — it's set by createAppKit() in context/index.tsx
-    import("@reown/appkit/react").then((mod) => {
-      if (mod.modal) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const m = mod.modal!;
-        setModalApi({
-          open: (opts) => m.open(opts),
-          close: () => m.close(),
-        });
-      }
-    }).catch(console.error);
-  }, []);
-
-  return modalApi;
-}
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -60,8 +29,10 @@ export default function Navbar() {
     address: isConnected ? address : undefined,
     chainId: 16602,
   });
+  const { locale, setLocale, t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const modalApi = useReownModal();
 
   const handleConnect = useCallback(() => {
@@ -72,6 +43,13 @@ export default function Navbar() {
     disconnect();
     setWalletMenuOpen(false);
   }, [disconnect]);
+
+  const navLinks: { href: string; label: TranslationKey; icon: React.ElementType }[] = [
+    { href: "/", label: "nav.dashboard", icon: Brain },
+    { href: "/upload", label: "nav.upload", icon: Upload },
+    { href: "/chat", label: "nav.chat", icon: MessageSquare },
+    { href: "/agents", label: "nav.agents", icon: Bot },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-dark-900/80 backdrop-blur-xl">
@@ -106,14 +84,59 @@ export default function Navbar() {
                   )}
                 >
                   <link.icon className="w-4 h-4" />
-                  {link.label}
+                  {t(link.label)}
                 </Link>
               );
             })}
           </div>
 
-          {/* Right Side: Wallet + Mobile Menu */}
-          <div className="flex items-center gap-3">
+          {/* Right Side: Lang + Wallet + Mobile Menu */}
+          <div className="flex items-center gap-2">
+            {/* Language Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setLangMenuOpen(!langMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all duration-200 border border-transparent hover:border-white/[0.08]"
+                title="Switch Language"
+              >
+                <Languages className="w-4 h-4" />
+                <span className="hidden sm:inline text-xs font-medium uppercase">{locale === "zh" ? "中" : "EN"}</span>
+              </button>
+
+              {langMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setLangMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-36 rounded-xl bg-dark-800 border border-white/10 shadow-xl z-50 py-1.5 animate-slide-up">
+                    <button
+                      onClick={() => { setLocale("en"); setLangMenuOpen(false); }}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-4 py-2.5 text-sm transition-colors",
+                        locale === "en" ? "text-neon-cyan bg-neon-cyan/5" : "text-zinc-300 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <span className="text-base">🇺🇸</span>
+                      English
+                      {locale === "en" && <span className="ml-auto text-neon-cyan text-xs">✓</span>}
+                    </button>
+                    <button
+                      onClick={() => { setLocale("zh"); setLangMenuOpen(false); }}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-4 py-2.5 text-sm transition-colors",
+                        locale === "zh" ? "text-neon-cyan bg-neon-cyan/5" : "text-zinc-300 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <span className="text-base">🇨🇳</span>
+                      中文
+                      {locale === "zh" && <span className="ml-auto text-neon-cyan text-xs">✓</span>}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* Wallet Button */}
             {isConnected && address ? (
               <div className="relative">
@@ -142,7 +165,7 @@ export default function Navbar() {
                     />
                     <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-dark-800 border border-white/10 shadow-xl z-50 py-2 animate-slide-up">
                       <div className="px-4 py-2 border-b border-white/[0.06]">
-                        <p className="text-xs text-zinc-500">Connected</p>
+                        <p className="text-xs text-zinc-500">{t("nav.connected")}</p>
                         <p className="text-sm font-mono text-white mt-0.5">
                           {truncateAddress(address)}
                         </p>
@@ -157,7 +180,7 @@ export default function Navbar() {
                         className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/10 transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        Disconnect
+                        {t("nav.disconnect")}
                       </button>
                     </div>
                   </>
@@ -175,7 +198,7 @@ export default function Navbar() {
                 )}
               >
                 <Wallet className="w-4 h-4" />
-                Connect Wallet
+                {t("nav.connectWallet")}
               </button>
             )}
 
@@ -213,7 +236,7 @@ export default function Navbar() {
                   )}
                 >
                   <link.icon className="w-4 h-4" />
-                  {link.label}
+                  {t(link.label)}
                 </Link>
               );
             })}
@@ -222,4 +245,31 @@ export default function Navbar() {
       </div>
     </nav>
   );
+}
+
+/**
+ * Hook to access the Reown AppKit modal open/close functions.
+ * Uses the exported `modal` singleton from @reown/appkit/react.
+ */
+function useReownModal() {
+  const [modalApi, setModalApi] = useState<{
+    open: (opts?: any) => Promise<any>;
+    close: () => Promise<any>;
+  } | null>(null);
+
+  useEffect(() => {
+    // Import the modal singleton — it's set by createAppKit() in context/index.tsx
+    import("@reown/appkit/react").then((mod) => {
+      if (mod.modal) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const m = mod.modal!;
+        setModalApi({
+          open: (opts) => m.open(opts),
+          close: () => m.close(),
+        });
+      }
+    }).catch(console.error);
+  }, []);
+
+  return modalApi;
 }

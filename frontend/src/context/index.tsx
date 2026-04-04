@@ -2,10 +2,11 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import { ReactNode, useState, useEffect, useRef, createContext, useContext } from "react";
+import { ReactNode, useState, useEffect, useRef, createContext, useContext, useCallback } from "react";
 import { config, wagmiAdapter } from "@/config/wagmiAdapter";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/config";
 import { zgTestnet, projectId } from "@/config/wagmi";
+import { translations, type Locale, type TranslationKey } from "@/lib/i18n";
 
 // ===== Network Context =====
 
@@ -26,13 +27,53 @@ export function useNetwork() {
   return context;
 }
 
+// ===== i18n Context =====
+
+interface I18nContextType {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
+}
+
+const I18nContext = createContext<I18nContextType | undefined>(undefined);
+
+export function useI18n() {
+  const context = useContext(I18nContext);
+  if (context === undefined) {
+    throw new Error("useI18n must be used within a I18nProvider");
+  }
+  return context;
+}
+
 // ===== Main Provider =====
 
 export function ContextProvider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   const [networkType, setNetworkType] = useState<NetworkType>("turbo");
+  const [locale, setLocaleState] = useState<Locale>("en");
   const initialized = useRef(false);
   const appkitInitialized = useRef(false);
+  const i18nInitialized = useRef(false);
+
+  // i18n translation function
+  const t = useCallback(
+    (key: TranslationKey, vars?: Record<string, string | number>): string => {
+      let text: string = translations[locale][key] || translations.en[key] || key;
+      if (vars) {
+        for (const [k, v] of Object.entries(vars)) {
+          text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), String(v));
+        }
+      }
+      return text;
+    },
+    [locale]
+  );
+
+  const setLocale = useCallback((newLocale: Locale) => {
+    setLocaleState(newLocale);
+    document.documentElement.lang = newLocale;
+    localStorage.setItem("locale", newLocale);
+  }, []);
 
   // Initialize Reown AppKit (client-side only)
   useEffect(() => {
@@ -73,6 +114,17 @@ export function ContextProvider({ children }: { children: ReactNode }) {
     }).catch(console.error);
   }, []);
 
+  // Restore locale from localStorage
+  useEffect(() => {
+    if (i18nInitialized.current) return;
+    const saved = localStorage.getItem("locale") as Locale | null;
+    if (saved === "zh" || saved === "en") {
+      setLocaleState(saved);
+      document.documentElement.lang = saved;
+    }
+    i18nInitialized.current = true;
+  }, []);
+
   // Restore networkType from localStorage
   useEffect(() => {
     if (initialized.current) return;
@@ -93,9 +145,11 @@ export function ContextProvider({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <NetworkContext.Provider value={{ networkType, setNetworkType }}>
-          {children}
-        </NetworkContext.Provider>
+        <I18nContext.Provider value={{ locale, setLocale, t }}>
+          <NetworkContext.Provider value={{ networkType, setNetworkType }}>
+            {children}
+          </NetworkContext.Provider>
+        </I18nContext.Provider>
       </QueryClientProvider>
     </WagmiProvider>
   );

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useAccount, useBalance } from "wagmi";
 import { useNetwork } from "@/context";
+import { useI18n } from "@/context";
 import FileDropzone from "@/components/common/FileDropzone";
 import {
   getNetworkConfig,
@@ -88,6 +89,7 @@ function getExplorerTxUrl(txHash: string) {
 export default function UploadPage() {
   const { isConnected, address } = useAccount();
   const { networkType } = useNetwork();
+  const { t } = useI18n();
   const { data: balanceData } = useBalance({
     address: isConnected ? address : undefined,
     chainId: 16602,
@@ -353,10 +355,10 @@ export default function UploadPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white mb-2">
-          <span className="neon-text">Upload</span> to Memory Vault
+          <span className="neon-text">{t("upload.title").split(" ")[0]}</span> {t("upload.title").split(" ").slice(1).join(" ")}
         </h1>
         <p className="text-zinc-400">
-          Store documents and knowledge on 0G decentralized storage
+          {t("upload.subtitle")}
         </p>
       </div>
 
@@ -364,10 +366,10 @@ export default function UploadPage() {
         <div className="glass-card p-12 text-center">
           <Upload className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-zinc-300 mb-2">
-            Connect Wallet First
+            {t("upload.connectWallet")}
           </h3>
           <p className="text-zinc-500 text-sm">
-            You need to connect your wallet to upload files
+            {t("upload.connectWalletHint")}
           </p>
         </div>
       ) : (
@@ -376,9 +378,9 @@ export default function UploadPage() {
           <div className="glass-card p-6">
             <div className="flex items-center gap-2 mb-4">
               <HardDrive className="w-5 h-5 text-neon-cyan" />
-              <h2 className="text-lg font-semibold">File Upload</h2>
+              <h2 className="text-lg font-semibold">{t("upload.fileUpload")}</h2>
               <span className="ml-auto px-3 py-1 rounded-full text-xs font-medium bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20">
-                {networkType === "turbo" ? "🐇 Turbo" : "🐢 Standard"}
+                {networkType === "turbo" ? t("common.turbo") : t("common.standard")}
               </span>
             </div>
 
@@ -417,7 +419,7 @@ export default function UploadPage() {
                       className="neon-button px-4 py-2 text-sm flex items-center gap-1.5"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      Upload
+                      {t("upload.uploadBtn")}
                     </button>
                   </div>
                 )}
@@ -427,7 +429,7 @@ export default function UploadPage() {
                   <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-red-300 font-medium">Upload Failed</p>
+                      <p className="text-sm text-red-300 font-medium">{t("upload.uploadFailed")}</p>
                       <p className="text-xs text-red-400/80 mt-1 break-all">{error}</p>
                     </div>
                     <button
@@ -458,15 +460,15 @@ export default function UploadPage() {
 
                 <div className="border-t border-white/[0.06] pt-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Storage Fee</span>
+                    <span className="text-zinc-400">{t("upload.storageFee")}</span>
                     <span className="text-zinc-200 font-mono">{feeInfo.storageFee} OG</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Estimated Gas</span>
+                    <span className="text-zinc-400">{t("upload.estimatedGas")}</span>
                     <span className="text-zinc-200 font-mono">{feeInfo.estimatedGas} OG</span>
                   </div>
                   <div className="flex justify-between text-sm font-semibold pt-2 border-t border-white/[0.06]">
-                    <span className="text-zinc-300">Total</span>
+                    <span className="text-zinc-300">{t("upload.total")}</span>
                     <span className="text-neon-cyan font-mono">{feeInfo.totalFee} OG</span>
                   </div>
                 </div>
@@ -476,14 +478,14 @@ export default function UploadPage() {
                     onClick={handleReset}
                     className="neon-button-outline px-4 py-2.5 text-sm flex-1"
                   >
-                    Cancel
+                    {t("upload.cancel")}
                   </button>
                   <button
                     onClick={handleConfirmUpload}
                     className="neon-button px-4 py-2.5 text-sm flex-1 flex items-center justify-center gap-2"
                   >
                     <Shield className="w-4 h-4" />
-                    Confirm & Upload
+                    {t("upload.confirmUpload")}
                   </button>
                 </div>
               </div>
@@ -496,23 +498,23 @@ export default function UploadPage() {
                   <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                   <div>
                     <p className="text-sm font-semibold text-emerald-300">
-                      Upload Complete!
+                      {t("upload.uploadComplete")}
                     </p>
                     <p className="text-xs text-zinc-500 mt-0.5">
-                      File stored on 0G {networkType} network
+                      {t("upload.storedOnNetwork", { type: networkType })}
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-black/20 rounded-lg p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-500 w-16">Root Hash</span>
+                    <span className="text-xs text-zinc-500 w-16">{t("upload.rootHash")}</span>
                     <code className="text-xs text-neon-cyan font-mono truncate">
                       {uploadResult.rootHash}
                     </code>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-500 w-16">Tx Hash</span>
+                    <span className="text-xs text-zinc-500 w-16">{t("upload.txHash")}</span>
                     <a
                       href={getExplorerTxUrl(uploadResult.txHash)}
                       target="_blank"
@@ -531,13 +533,13 @@ export default function UploadPage() {
                     className="neon-button px-4 py-2.5 text-sm flex-1 flex items-center justify-center gap-2"
                   >
                     <Upload className="w-4 h-4" />
-                    Upload Another
+                    {t("upload.uploadAnother")}
                   </button>
                   <a
                     href={`#file-${uploadResult.rootHash.slice(0, 8)}`}
                     className="neon-button-outline px-4 py-2.5 text-sm flex items-center justify-center gap-2"
                   >
-                    View Files
+                    {t("upload.viewFiles")}
                     <ArrowRight className="w-4 h-4" />
                   </a>
                 </div>
@@ -552,13 +554,13 @@ export default function UploadPage() {
               <div className="mt-6 text-center space-y-3">
                 <Loader2 className="w-8 h-8 text-neon-cyan animate-spin mx-auto" />
                 <p className="text-sm text-zinc-300">
-                  {uploadStep === "merkle" && "Generating Merkle tree..."}
-                  {uploadStep === "fees" && "Calculating storage fees..."}
-                  {uploadStep === "submit-tx" && "Submitting transaction to Flow contract..."}
-                  {uploadStep === "uploading" && "Uploading to 0G Storage network..."}
+                  {uploadStep === "merkle" && t("upload.progress.merkle")}
+                  {uploadStep === "fees" && t("upload.progress.fees")}
+                  {uploadStep === "submit-tx" && t("upload.progress.submitTx")}
+                  {uploadStep === "uploading" && t("upload.progress.uploading")}
                 </p>
                 <p className="text-xs text-zinc-500">
-                  Please confirm the transaction in your wallet if prompted
+                  {t("upload.progress.confirmHint")}
                 </p>
               </div>
             )}
@@ -569,7 +571,7 @@ export default function UploadPage() {
             <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm text-amber-300 font-medium">Anchor Failed</p>
+                <p className="text-sm text-amber-300 font-medium">{t("upload.anchorFailed")}</p>
                 <p className="text-xs text-amber-400/80 mt-0.5">{anchoringError}</p>
               </div>
               <button
@@ -585,7 +587,7 @@ export default function UploadPage() {
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-zinc-400">
-                Uploaded Files
+                {t("upload.uploadedFiles")}
                 {uploadedFiles.length > 0 && (
                   <span className="ml-2 px-2 py-0.5 rounded-full bg-white/[0.06] text-xs text-zinc-500">
                     {uploadedFiles.length}
@@ -604,7 +606,7 @@ export default function UploadPage() {
                   }}
                   className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
-                  Clear All
+                  {t("upload.clearAll")}
                 </button>
               )}
             </div>
@@ -612,8 +614,8 @@ export default function UploadPage() {
             {uploadedFiles.length === 0 ? (
               <div className="text-center py-8 text-zinc-500 text-sm">
                 <HardDrive className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                <p>No files uploaded yet.</p>
-                <p className="text-xs mt-1">Drop a file above to get started.</p>
+                <p>{t("upload.noFiles")}</p>
+                <p className="text-xs mt-1">{t("upload.noFilesHint")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -639,15 +641,16 @@ export default function UploadPage() {
 // ===== Sub-components =====
 
 const STEPS = [
-  { key: "merkle", label: "Merkle Tree" },
-  { key: "fees", label: "Calculate Fees" },
-  { key: "submit-tx", label: "Submit TX" },
-  { key: "uploading", label: "Upload" },
-  { key: "done", label: "Complete" },
+  { key: "merkle", labelEn: "Merkle Tree", labelZh: "Merkle 树" },
+  { key: "fees", labelEn: "Calculate Fees", labelZh: "计算费用" },
+  { key: "submit-tx", labelEn: "Submit TX", labelZh: "提交交易" },
+  { key: "uploading", labelEn: "Upload", labelZh: "上传中" },
+  { key: "done", labelEn: "Complete", labelZh: "完成" },
 ] as const;
 
 function UploadProgress({ step }: { step: UploadStep }) {
   const activeIndex = STEPS.findIndex((s) => s.key === step);
+  const { locale } = useI18n();
 
   return (
     <div className="flex items-center gap-1">
@@ -680,7 +683,7 @@ function UploadProgress({ step }: { step: UploadStep }) {
                   isActive ? "text-neon-cyan" : isDone ? "text-zinc-400" : "text-zinc-600"
                 )}
               >
-                {s.label}
+                {locale === "zh" ? s.labelZh : s.labelEn}
               </span>
             </div>
             {i < STEPS.length - 1 && (
@@ -715,6 +718,7 @@ function FileCard({
 }) {
   const Icon = getFileIcon(file.contentType);
   const timeAgo = getTimeAgo(file.uploadedAt);
+  const { t } = useI18n();
 
   return (
     <div
@@ -746,7 +750,7 @@ function FileCard({
                 <span className="text-xs text-zinc-600">&middot;</span>
                 <span className="text-xs text-emerald-400 flex items-center gap-1">
                   <Shield className="w-3 h-3" />
-                  Anchored
+                  {t("upload.anchored")}
                 </span>
               </>
             )}
@@ -771,7 +775,7 @@ function FileCard({
                   ? "opacity-50 cursor-not-allowed"
                   : "text-amber-400 hover:bg-amber-400/10 hover:text-amber-300"
               )}
-              title="Anchor to chain"
+              title={t("upload.anchorToChain")}
             >
               {isAnchoring ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -783,7 +787,7 @@ function FileCard({
           <button
             onClick={() => onDownload(file)}
             className="p-2 rounded-lg text-zinc-500 hover:text-neon-cyan hover:bg-neon-cyan/10 transition-all duration-200"
-            title="Download file"
+            title={t("upload.downloadFile")}
           >
             <Download className="w-4 h-4" />
           </button>
@@ -792,7 +796,7 @@ function FileCard({
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 rounded-lg text-zinc-500 hover:text-neon-blue hover:bg-neon-blue/10 transition-all duration-200"
-            title="View transaction"
+            title={t("upload.viewTx")}
           >
             <ExternalLink className="w-4 h-4" />
           </a>

@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useAccount } from "wagmi";
-import { useNetwork } from "@/context";
+import { useNetwork, useI18n } from "@/context";
 import { getNetworkConfig } from "@/lib/storage";
 import { cn, truncateHash } from "@/lib/utils";
 
@@ -78,6 +78,7 @@ function getConversationTitle(firstMessage: string): string {
 export default function ChatPage() {
   const { isConnected, address } = useAccount();
   const { networkType } = useNetwork();
+  const { t } = useI18n();
 
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -477,10 +478,10 @@ export default function ChatPage() {
         <div className="glass-card p-12 text-center">
           <MessageSquare className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-zinc-300 mb-2">
-            Connect Wallet First
+            {t("chat.connectWallet")}
           </h3>
           <p className="text-zinc-500 text-sm">
-            You need to connect your wallet to use AI chat
+            {t("chat.connectWalletHint")}
           </p>
         </div>
       </div>
@@ -497,10 +498,10 @@ export default function ChatPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white mb-2">
-            <span className="neon-text">AI</span> Conversation
+            <span className="neon-text">{t("chat.title").split(" ")[0]}</span> {t("chat.title").split(" ").slice(1).join(" ")}
           </h1>
           <p className="text-zinc-400">
-            Chat with AI powered by 0G Compute Network
+            {t("chat.subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -519,9 +520,9 @@ export default function ChatPage() {
               className="neon-input pr-8 py-2 text-sm appearance-none cursor-pointer min-w-[200px]"
             >
               {isLoadingServices ? (
-                <option>Loading services...</option>
+                <option>{t("chat.loadingServices")}</option>
               ) : services.length === 0 ? (
-                <option>No services available</option>
+                <option>{t("chat.noServices")}</option>
               ) : (
                 services.map((s) => (
                   <option key={s.provider} value={s.provider}>
@@ -547,12 +548,12 @@ export default function ChatPage() {
           <div className="glass-card p-4 h-full flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-zinc-400">
-                Conversations
+                {t("chat.conversations")}
               </h3>
               <button
                 onClick={handleNewConvo}
                 className="p-1.5 rounded-lg text-zinc-500 hover:text-neon-cyan hover:bg-neon-cyan/10 transition-all"
-                title="New conversation"
+                title={t("chat.newConvo")}
               >
                 <MessageSquare className="w-4 h-4" />
               </button>
@@ -561,7 +562,7 @@ export default function ChatPage() {
             <div className="flex-1 overflow-y-auto space-y-1">
               {conversations.length === 0 ? (
                 <p className="text-xs text-zinc-600 text-center py-8">
-                  No conversations yet
+                  {t("chat.noConversations")}
                 </p>
               ) : (
                 conversations.map((convo) => (
@@ -582,7 +583,7 @@ export default function ChatPage() {
                     </p>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-[10px] text-zinc-600">
-                        {convo.messageCount} messages
+                        {convo.messageCount} {t("chat.messages")}
                       </span>
                       <button
                         onClick={(e) => {
@@ -659,7 +660,7 @@ export default function ChatPage() {
                   }}
                   className="neon-input py-1.5 px-3 text-xs appearance-none cursor-pointer min-w-[140px] pr-6"
                 >
-                  <option value="__none__">No RAG context</option>
+                  <option value="__none__">{t("chat.noRag")}</option>
                   {userFiles.map((f) => (
                     <option key={f.rootHash} value={f.rootHash}>
                       {f.fileName}
@@ -673,9 +674,9 @@ export default function ChatPage() {
             <button
               onClick={handleNewConvo}
               className="p-2 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.06] transition-all"
-              title="New conversation"
-            >
-              <RefreshCw className="w-4 h-4" />
+              title={t("chat.newConvo")}
+              >
+                <RefreshCw className="w-4 h-4" />
             </button>
           </div>
 
@@ -683,9 +684,9 @@ export default function ChatPage() {
           {ragStatus.active && (
             <div className="px-4 py-2 bg-neon-cyan/5 border-b border-neon-cyan/10 flex items-center gap-2">
               <Database className="w-3.5 h-3.5 text-neon-cyan" />
-              <span className="text-xs text-neon-cyan">
-                RAG: {ragStatus.fileName}
-              </span>
+                <span className="text-xs text-neon-cyan">
+                  {t("chat.ragIndicator", { fileName: ragStatus.fileName })}
+                </span>
               <button
                 onClick={() =>
                   setRagStatus({
@@ -712,11 +713,10 @@ export default function ChatPage() {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-zinc-200 mb-2">
-                      AI Memory Vault
+                      {t("chat.welcome.title")}
                     </h3>
                     <p className="text-sm text-zinc-500">
-                      Ask questions about your stored documents, get AI-powered
-                      insights, or just have a conversation.
+                      {t("chat.welcome.subtitle")}
                     </p>
                   </div>
                   {selectedService && (
@@ -818,8 +818,8 @@ export default function ChatPage() {
                   onKeyDown={handleKeyDown}
                   placeholder={
                     selectedProvider
-                      ? "Type your message... (Enter to send, Shift+Enter for new line)"
-                      : "Select a model provider above..."
+                      ? t("chat.inputPlaceholder")
+                      : t("chat.selectProvider")
                   }
                   disabled={isStreaming || !selectedProvider}
                   rows={1}
@@ -853,22 +853,22 @@ export default function ChatPage() {
                 {selectedService && (
                   <>
                     <span>
-                      In: {selectedService.inputPrice} OG/tok
+                      {t("chat.inPrice", { price: selectedService.inputPrice })}
                     </span>
                     <span>
-                      Out: {selectedService.outputPrice} OG/tok
+                      {t("chat.outPrice", { price: selectedService.outputPrice })}
                     </span>
                   </>
                 )}
                 {selectedService?.verifiability === "TeeML" && (
                   <span className="text-emerald-600 flex items-center gap-1">
                     <Zap className="w-2.5 h-2.5" />
-                    TEE Verified
+                    {t("chat.teeVerified")}
                   </span>
                 )}
               </div>
               <span className="text-[10px] text-zinc-700">
-                0G Compute Network
+                {t("chat.computeNetwork")}
               </span>
             </div>
           </div>
