@@ -3,7 +3,7 @@
  * Based on storage-web-starter patterns
  */
 
-import { Blob as ZgBlob, Indexer, type Blob as ZgBlobType, MerkleTree, getMarketContract, calculatePrice, FixedPriceFlow__factory } from "@0glabs/0g-ts-sdk";
+import { Blob as ZgBlob, Indexer, type Blob as ZgBlobType, MerkleTree, getMarketContract, calculatePrice, FixedPriceFlow__factory } from "@0gfoundation/0g-ts-sdk";
 import { BrowserProvider, Contract, formatEther } from "ethers";
 
 // ===== Types =====

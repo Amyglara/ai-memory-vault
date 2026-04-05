@@ -31,10 +31,13 @@ async function loadSDK() {
 const RPC_URL = process.env.COMPUTE_RPC_URL || "https://evmrpc-testnet.0g.ai";
 
 const OFFICIAL_PROVIDERS: Record<string, string> = {
-  "llama-3.3-70b-instruct": "0xf07240Efa67755B5311bc75784a061eDB47165Dd",
-  "deepseek-r1-70b": "0x3feE5a4dd5FDb8a32dDA97Bed899830605dBD9D3",
-  "qwen2.5-vl-72b-instruct": "0x6D233D2610c32f630ED53E8a7Cbf759568041f8f",
+  "qwen-2.5-7b-instruct": "0xa48f01287233509FD694a22Bf840225062E67836",
+  "openai/gpt-oss-20b": "0x8e60d466FD16798Bec4868aa4CE38586D5590049",
+  "google/gemma-3-27b-it": "0x69Eb5a0BD7d0f4bF39eD5CE9Bd3376c61863aE08",
 };
+
+/** Provider used for AI arbitration (qwen-2.5-7b is reliable and available) */
+const ARBITRATION_PROVIDER = OFFICIAL_PROVIDERS["qwen-2.5-7b-instruct"];
 
 // ===== Types =====
 
@@ -83,6 +86,20 @@ async function getBroker(): Promise<any> {
     const wallet = new ethers.Wallet(privateKey, provider);
     brokerInstance = await createZGComputeNetworkBrokerFn(wallet);
     console.log(`[Compute] Broker initialized for ${wallet.address}`);
+
+    // Auto-create ledger account if it doesn't exist (idempotent)
+    try {
+      await brokerInstance.ledger.getLedger();
+      console.log("[Compute] Ledger account exists");
+    } catch {
+      try {
+        await brokerInstance.ledger.addLedger(0.01);
+        console.log("[Compute] Ledger account created");
+      } catch (e: any) {
+        console.warn(`[Compute] Ledger creation skipped: ${e.message}`);
+      }
+    }
+
     return brokerInstance;
   })();
 
@@ -160,7 +177,11 @@ export async function ensureProviderReady(
   fundAmount = 1.0
 ): Promise<void> {
   // Acknowledge (idempotent)
-  await acknowledgeProvider(providerAddress);
+  try {
+    await acknowledgeProvider(providerAddress);
+  } catch (e: any) {
+    console.warn(`[Compute] Acknowledge warning: ${e.message}`);
+  }
 
   // Transfer funds (may fail if already funded — ignore)
   try {
@@ -400,10 +421,10 @@ export async function arbitrate(
 }> {
   const broker = await getBroker();
 
-  // Use deepseek-r1-70b for reasoning-heavy arbitration
-  const providerAddress = OFFICIAL_PROVIDERS["deepseek-r1-70b"];
+  // Use gemma-3-27b for arbitration (currently most capable available)
+  const providerAddress = ARBITRATION_PROVIDER;
   if (!providerAddress) {
-    throw new Error("Arbitration provider (deepseek-r1-70b) not found");
+    throw new Error("Arbitration provider not configured");
   }
 
   // Arbitration system prompt

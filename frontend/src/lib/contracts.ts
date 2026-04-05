@@ -462,23 +462,64 @@ export async function getEscrowStatus(escrowId: bigint): Promise<number> {
 
 export async function getEscrowStats(): Promise<EscrowStats> {
   const client = getPublicClient();
-  const stats = await client.readContract({
-    address: TRUSTGATE_ADDRESS,
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "getEscrowStats",
-  });
-  const [funded, disputed, resolved, total] = stats as [bigint, bigint, bigint, bigint];
-  return { funded, disputed, resolved, total };
+  try {
+    const stats = await client.readContract({
+      address: TRUSTGATE_ADDRESS,
+      abi: TRUSTGATE_ESCROW_ABI,
+      functionName: "getEscrowStats",
+    });
+    const [funded, disputed, resolved, total] = stats as [bigint, bigint, bigint, bigint];
+    return { funded, disputed, resolved, total };
+  } catch {
+    // Fallback: iterate escrows individually to handle corrupted entries
+    try {
+      const count = await getEscrowCount();
+      let funded = 0n, disputed = 0n, resolved = 0n;
+      for (let i = 0n; i < count; i++) {
+        try {
+          const status = await getEscrowStatus(i);
+          if (status === EscrowStatus.Funded || status === EscrowStatus.Evidence) funded++;
+          else if (status === EscrowStatus.Disputed) disputed++;
+          else if (status >= EscrowStatus.Resolved) resolved++;
+        } catch { /* skip corrupted escrow */ }
+      }
+      return { funded, disputed, resolved, total: count };
+    } catch {
+      return { funded: 0n, disputed: 0n, resolved: 0n, total: 0n };
+    }
+  }
 }
 
 export async function getTotalValueLocked(): Promise<bigint> {
   const client = getPublicClient();
-  const tvl = await client.readContract({
-    address: TRUSTGATE_ADDRESS,
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "getTotalValueLocked",
-  });
-  return tvl as bigint;
+  try {
+    const tvl = await client.readContract({
+      address: TRUSTGATE_ADDRESS,
+      abi: TRUSTGATE_ESCROW_ABI,
+      functionName: "getTotalValueLocked",
+    });
+    return tvl as bigint;
+  } catch {
+    // Fallback: read escrow amounts individually
+    try {
+      const count = await getEscrowCount();
+      let tvl = 0n;
+      for (let i = 0n; i < count; i++) {
+        try {
+          const status = await getEscrowStatus(i);
+          if (status === EscrowStatus.Funded || status === EscrowStatus.Evidence || status === EscrowStatus.Disputed) {
+            // Read amount and fee from raw storage would be complex;
+            // return 0 for corrupted entries
+            const escrow = await getEscrow(i);
+            tvl += (escrow as any).amount + (escrow as any).fee;
+          }
+        } catch { /* skip corrupted escrow */ }
+      }
+      return tvl;
+    } catch {
+      return 0n;
+    }
+  }
 }
 
 export async function getPendingWithdrawal(addr: Address): Promise<bigint> {
@@ -570,6 +611,24 @@ async function writeContractViaWagmi(
     }
   }
 
+  // Pre-estimate gas using our own publicClient (bypasses wallet RPC issues)
+  const ourClient = getPublicClient();
+  let gas: bigint | undefined;
+  try {
+    gas = await ourClient.estimateGas({
+      address: TRUSTGATE_ADDRESS,
+      abi: TRUSTGATE_ESCROW_ABI,
+      functionName,
+      args: args as any,
+      value: value as any,
+      account: walletClient.account?.address as Address,
+    });
+    // Add 20% buffer for safety
+    gas = (gas * 120n) / 100n;
+  } catch (err) {
+    console.warn(`[writeContract] Gas estimation via publicClient failed for ${functionName}, letting wallet handle it:`, err);
+  }
+
   // Send the transaction through the connected wallet — ALWAYS use zgTestnet chain
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hash = await walletClient.writeContract({
@@ -579,6 +638,7 @@ async function writeContractViaWagmi(
     args: args as any,
     value: value as any,
     chain: zgTestnet,
+    ...(gas ? { gas } : {}),
   } as any);
 
   // Wait for receipt using wagmi's public client (same chain as wallet)

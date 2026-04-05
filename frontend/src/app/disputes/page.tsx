@@ -462,35 +462,43 @@ function EvidenceSection({
     }
   };
 
+  /** Convert File to base64 string for server upload */
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Remove data URL prefix: "data:application/...;base64,"
+        const result = reader.result as string;
+        resolve(result.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleFileDrop = async (file: File) => {
     setUploading(true);
-    setUploadStep("Preparing upload...");
+    setUploadStep("Uploading to 0G Storage...");
     setUploadError("");
 
     try {
-      // Step 1: Create blob and generate Merkle tree
-      setUploadStep("Generating Merkle tree...");
-      const { createBlob, generateMerkleTree, getRootHash, uploadToStorage, getNetworkConfig } = await import("@/lib/storage");
-      const blob = createBlob(file);
-      const [tree, treeErr] = await generateMerkleTree(blob);
-      if (treeErr || !tree) throw new Error(treeErr?.message || "Failed to generate Merkle tree");
+      // Server-side upload (bypasses browser Mixed Content restriction)
+      const fileData = await fileToBase64(file);
 
-      const [rootHash, hashErr] = getRootHash(tree);
-      if (hashErr || !rootHash) throw new Error(hashErr?.message || "Failed to get root hash");
+      const res = await fetch("/api/storage/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, fileData }),
+      });
 
-      // Step 2: Upload to 0G Storage
-      setUploadStep("Uploading to 0G Storage...");
-      const networkConfig = getNetworkConfig("turbo");
-      const { getBrowserProvider, getBrowserSigner } = await import("@/lib/storage");
-      const [provider, provErr] = await getBrowserProvider();
-      if (provErr || !provider) throw new Error(provErr?.message || "No wallet provider");
-      const [signer, signerErr] = await getBrowserSigner(provider);
-      if (signerErr || !signer) throw new Error(signerErr?.message || "Failed to get signer");
+      const data = await res.json();
+      if (!data.success || !data.rootHash) {
+        throw new Error(data.error || "Storage upload failed");
+      }
 
-      const [uploaded, uploadErr] = await uploadToStorage(blob, networkConfig.storageRpc, networkConfig.l1Rpc, signer);
-      if (!uploaded || uploadErr) throw new Error(uploadErr?.message || "Storage upload failed");
+      const rootHash = data.rootHash;
+      console.log(`[Evidence] Uploaded: ${file.name} → ${rootHash}`);
 
-      // Step 3: Submit evidence on-chain
+      // Submit evidence on-chain
       setUploadStep("Submitting evidence on-chain...");
       await submitEvidenceOnChain(escrowId, rootHash, file.name, `Evidence uploaded by ${truncateAddress(currentUser)}`);
       
