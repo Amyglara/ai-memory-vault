@@ -4,8 +4,8 @@
  */
 
 import { createPublicClient, http, type Address } from "viem";
-import { getWalletClient, getPublicClient as getWagmiPublicClient } from "@wagmi/core";
-import { L1_RPC, zgTestnet } from "./config";
+import { getWalletClient, getPublicClient as getWagmiPublicClient, switchChain } from "@wagmi/core";
+import { L1_RPC, zgTestnet, CHAIN_ID } from "./config";
 import { config as wagmiConfig } from "@/lib/wagmi";
 
 // ===== Types =====
@@ -552,7 +552,25 @@ async function writeContractViaWagmi(
     throw new Error("Wallet not connected. Please connect your wallet first.");
   }
 
-  // Send the transaction through the connected wallet
+  // CRITICAL: Force the wallet to the correct chain before sending
+  if (walletClient.chain.id !== CHAIN_ID) {
+    try {
+      await switchChain(wagmiConfig, { chainId: CHAIN_ID });
+    } catch {
+      throw new Error(
+        `Wrong network! Please switch your wallet to "${zgTestnet.name}" (Chain ID: ${CHAIN_ID}) in your wallet settings, then try again.`
+      );
+    }
+    // Re-fetch wallet client after chain switch
+    const updatedClient = await getWalletClient(wagmiConfig);
+    if (!updatedClient || updatedClient.chain.id !== CHAIN_ID) {
+      throw new Error(
+        `Wallet is still on the wrong chain. Please manually switch to "${zgTestnet.name}" (Chain ID: ${CHAIN_ID}).`
+      );
+    }
+  }
+
+  // Send the transaction through the connected wallet — ALWAYS use zgTestnet chain
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hash = await walletClient.writeContract({
     address: TRUSTGATE_ADDRESS,
@@ -560,7 +578,7 @@ async function writeContractViaWagmi(
     functionName,
     args: args as any,
     value: value as any,
-    chain: walletClient.chain,
+    chain: zgTestnet,
   } as any);
 
   // Wait for receipt using wagmi's public client (same chain as wallet)
@@ -575,7 +593,7 @@ async function writeContractViaWagmi(
   });
 
   if (receipt.status === "reverted") {
-    throw new Error(`Transaction reverted. Hash: ${hash}`);
+    throw new Error(`Transaction reverted on-chain. Hash: ${hash}. Check the explorer for details.`);
   }
 
   return hash;

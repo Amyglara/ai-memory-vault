@@ -11,6 +11,10 @@ import { parseEther, formatEther } from "viem";
 import PageLayout from "@/components/layout/PageLayout";
 
 export default function CreateEscrowPage() {
+  return <PageLayout><PageContent /></PageLayout>;
+}
+
+function PageContent() {
   const { isConnected, address } = useAccount();
   const { t } = useI18n();
 
@@ -79,7 +83,8 @@ export default function CreateEscrowPage() {
     { days: 30, label: t("create.days30") },
   ];
 
-  const pageContent = !isConnected ? (
+  return (
+    !isConnected ? (
     <div className="animate-slide-up flex items-center justify-center min-h-[60vh]">
       <div className="glass-card p-12 text-center max-w-md">
         <div className="w-20 h-20 rounded-2xl bg-white/[0.03] flex items-center justify-center mx-auto mb-6">
@@ -336,7 +341,5 @@ export default function CreateEscrowPage() {
         </p>
       </div>
     </div>
-  );
-
-  return <PageLayout>{pageContent}</PageLayout>;
+  ));
 }
