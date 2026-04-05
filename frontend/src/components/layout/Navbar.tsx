@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronDown,
   Languages,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,13 +58,16 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-neon-glow flex items-center justify-center group-hover:shadow-neon transition-shadow duration-300">
+            <div className="w-9 h-9 rounded-xl bg-neon-glow flex items-center justify-center group-hover:shadow-neon transition-all duration-300 group-hover:scale-105">
               <Shield className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg font-bold tracking-tight">
-              <span className="neon-text">Trust</span>
-              <span className="text-zinc-400">Gate</span>
-            </span>
+            <div className="flex flex-col">
+              <span className="text-lg font-bold tracking-tight leading-none">
+                <span className="neon-text">Trust</span>
+                <span className="text-zinc-400">Gate</span>
+              </span>
+              <span className="text-[9px] text-zinc-600 font-mono tracking-widest uppercase">0G Network</span>
+            </div>
           </Link>
 
           {/* Desktop Nav Links */}
@@ -77,7 +81,7 @@ export default function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                    "relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                     isActive
                       ? "text-neon-cyan bg-neon-cyan/10"
                       : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -85,6 +89,9 @@ export default function Navbar() {
                 >
                   <link.icon className="w-4 h-4" />
                   {t(link.label)}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-neon-cyan" />
+                  )}
                 </Link>
               );
             })}
@@ -237,6 +244,7 @@ export default function Navbar() {
                 >
                   <link.icon className="w-4 h-4" />
                   {t(link.label)}
+                  {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-neon-cyan" />}
                 </Link>
               );
             })}
@@ -244,6 +252,52 @@ export default function Navbar() {
         )}
       </div>
     </nav>
+  );
+}
+
+// ===== Footer Component =====
+
+export function Footer() {
+  const { t } = useI18n();
+
+  return (
+    <footer className="border-t border-white/[0.06] bg-dark-900/50 backdrop-blur-sm mt-auto">
+      <div className="container mx-auto max-w-7xl px-4 py-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-neon-glow/50 flex items-center justify-center">
+              <Shield className="w-4 h-4 text-white/80" />
+            </div>
+            <span className="text-sm font-semibold">
+              <span className="neon-text">Trust</span>
+              <span className="text-zinc-500">Gate</span>
+            </span>
+            <span className="text-xs text-zinc-600 hidden sm:inline">· {t("footer.tagline")}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://0g.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-zinc-500 hover:text-neon-cyan transition-colors flex items-center gap-1"
+            >
+              0G Network
+              <ArrowUpRight className="w-3 h-3" />
+            </a>
+            <a
+              href="https://github.com/Amyglara/ai-memory-vault"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-zinc-500 hover:text-neon-cyan transition-colors flex items-center gap-1"
+            >
+              GitHub
+              <ArrowUpRight className="w-3 h-3" />
+            </a>
+            <span className="text-xs text-zinc-600">© 2025 TrustGate</span>
+          </div>
+        </div>
+      </div>
+    </footer>
   );
 }
 

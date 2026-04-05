@@ -1,19 +1,16 @@
 "use client";
 
 import React from "react";
-import Navbar from "@/components/layout/Navbar";
-import DashboardPage from "@/components/pages/DashboardPage";
+import Navbar, { Footer } from "@/components/layout/Navbar";
 
-export function ClientPage() {
+export default function PageLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative z-10 min-h-screen bg-grid-pattern flex flex-col">
       <Navbar />
       <main className="container mx-auto px-4 py-8 max-w-7xl flex-1">
-        <DashboardPage />
+        {children}
       </main>
       <Footer />
     </div>
   );
 }
-
-import { Footer } from "@/components/layout/Navbar";

@@ -57,6 +57,7 @@ body {
     @apply relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04];
     backdrop-filter: blur(20px) saturate(180%);
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
   }
 
   .glass-card-hover {
@@ -94,7 +95,7 @@ body {
   }
 
   .neon-button:active {
-    transform: translateY(0px);
+    transform: translateY(0px) scale(0.98);
   }
 
   .neon-button:disabled {

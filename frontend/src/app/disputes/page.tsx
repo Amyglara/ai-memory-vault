@@ -5,8 +5,6 @@ import { useAccount } from "wagmi";
 import { useI18n } from "@/context";
 import {
   getEscrow,
-  getEscrowsByBuyer,
-  getEscrowsBySeller,
   getArbitration,
   getEvidenceByEscrow,
   getEvidence,
@@ -28,11 +26,10 @@ import {
   castVote,
   resolveEscrow,
   withdrawFunds,
-  submitEvidence,
 } from "@/lib/contracts";
-import { EXPLORER_URL } from "@/lib/config";
 import { truncateAddress } from "@/lib/utils";
 import FileDropzone from "@/components/common/FileDropzone";
+import PageLayout from "@/components/layout/PageLayout";
 import {
   Swords,
   Shield,
@@ -52,6 +49,12 @@ import {
   CheckCircle2,
   XCircle,
   Banknote,
+  RefreshCw,
+  Copy,
+  Check,
+  Sparkles,
+  Search,
+  Inbox,
 } from "lucide-react";
 import type { Escrow, Evidence as EvidenceType, Arbitration } from "@/lib/contracts";
 import type { Address } from "viem";
@@ -69,6 +72,7 @@ export default function DisputesPage() {
   const [error, setError] = useState("");
   const [expandedId, setExpandedId] = useState<bigint | null>(null);
   const [pendingWithdrawal, setPendingWithdrawal] = useState<string>("0");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadEscrows = useCallback(async () => {
     if (!isConnected || !address) return;
@@ -113,6 +117,15 @@ export default function DisputesPage() {
     return true;
   });
 
+  // Apply search filter
+  const displayedEscrows = searchQuery
+    ? filteredEscrows.filter((e) =>
+        e.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        truncateAddress(e.buyer).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        truncateAddress(e.seller).toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : filteredEscrows;
+
   const tabs: { key: TabKey; label: string }[] = [
     { key: "all", label: t("disputes.tabs.all") },
     { key: "active", label: t("disputes.tabs.active") },
@@ -122,27 +135,60 @@ export default function DisputesPage() {
 
   if (!isConnected) {
     return (
-      <div className="animate-slide-up">
-        <div className="glass-card p-12 text-center">
-          <Swords className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">{t("disputes.connectWallet")}</h2>
-          <p className="text-zinc-500">{t("disputes.connectWalletHint")}</p>
+      <PageLayout>
+        <div className="animate-slide-up flex items-center justify-center min-h-[60vh]">
+          <div className="glass-card p-12 text-center max-w-md">
+            <div className="w-20 h-20 rounded-2xl bg-white/[0.03] flex items-center justify-center mx-auto mb-6">
+              <Swords className="w-10 h-10 text-zinc-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-white mb-2">{t("disputes.connectWallet")}</h2>
+            <p className="text-zinc-500 text-sm">{t("disputes.connectWalletHint")}</p>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
-  return (
+  const escrowCounts = {
+    all: escrows.length,
+    active: escrows.filter((e) => e.status === EscrowStatus.Funded || e.status === EscrowStatus.Evidence).length,
+    disputed: escrows.filter((e) => e.status === EscrowStatus.Disputed).length,
+    resolved: escrows.filter((e) => e.status === EscrowStatus.Resolved || e.status === EscrowStatus.Released || e.status === EscrowStatus.Refunded).length,
+  };
+
+  const pageContent = (
     <div className="animate-slide-up space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-2">{t("disputes.title")}</h1>
-          <p className="text-zinc-400">{t("disputes.subtitle")}</p>
+          <h1 className="text-2xl font-bold text-white mb-1">{t("disputes.title")}</h1>
+          <p className="text-zinc-400 text-sm">{t("disputes.subtitle")}</p>
         </div>
-        {Number(pendingWithdrawal) > 0 && (
-          <WithdrawBanner amount={pendingWithdrawal} onUpdate={loadEscrows} />
-        )}
+        <div className="flex items-center gap-2">
+          {Number(pendingWithdrawal) > 0 && (
+            <WithdrawBanner amount={pendingWithdrawal} onUpdate={loadEscrows} />
+          )}
+          <button
+            onClick={loadEscrows}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/[0.06] disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            {t("nav.refresh")}
+          </button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={t("disputes.searchPlaceholder")}
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder:text-zinc-600 focus:outline-none focus:border-neon-cyan/50 focus:ring-1 focus:ring-neon-cyan/20 transition-all text-sm"
+        />
       </div>
 
       {/* Tabs */}
@@ -151,21 +197,15 @@ export default function DisputesPage() {
           <button
             key={tabItem.key}
             onClick={() => setTab(tabItem.key)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
               tab === tabItem.key
-                ? "bg-neon-cyan/10 text-neon-cyan"
+                ? "bg-neon-cyan/10 text-neon-cyan shadow-[0_0_15px_rgba(0,229,255,0.05)]"
                 : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"
             }`}
           >
             {tabItem.label}
-            <span className="ml-1.5 text-xs opacity-60">
-              ({escrows.filter((e) => {
-                if (tabItem.key === "all") return true;
-                if (tabItem.key === "active") return e.status === EscrowStatus.Funded || e.status === EscrowStatus.Evidence;
-                if (tabItem.key === "disputed") return e.status === EscrowStatus.Disputed;
-                if (tabItem.key === "resolved") return e.status === EscrowStatus.Resolved || e.status === EscrowStatus.Released || e.status === EscrowStatus.Refunded;
-                return true;
-              }).length})
+            <span className="ml-1.5 text-xs tabular-nums opacity-60">
+              ({escrowCounts[tabItem.key as keyof typeof escrowCounts]})
             </span>
           </button>
         ))}
@@ -173,7 +213,7 @@ export default function DisputesPage() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-sm">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-sm animate-fade-in">
           <AlertCircle className="w-4 h-4" />
           <span>{error}</span>
         </div>
@@ -181,33 +221,41 @@ export default function DisputesPage() {
 
       {/* Loading */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
-          <span className="ml-2 text-zinc-400">{t("disputes.loading")}</span>
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+          <span className="text-zinc-400 text-sm">{t("disputes.loading")}</span>
         </div>
-      ) : filteredEscrows.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Shield className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
+      ) : displayedEscrows.length === 0 ? (
+        <div className="glass-card p-16 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] flex items-center justify-center mx-auto mb-4">
+            <Inbox className="w-8 h-8 text-zinc-600" />
+          </div>
           <p className="text-zinc-400">{t("disputes.noEscrows")}</p>
           <p className="text-zinc-500 text-sm mt-1">{t("disputes.noEscrowsHint")}</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredEscrows.map((escrow, index) => (
-            <EscrowCard
-              key={escrowIds[index]?.toString() || index}
-              escrowId={escrowIds[index]!}
-              escrow={escrow}
-              isExpanded={expandedId === escrowIds[index]}
-              onToggle={() => setExpandedId(expandedId === escrowIds[index] ? null : escrowIds[index]!)}
-              currentUser={address!}
-              onUpdate={loadEscrows}
-            />
-          ))}
+          {displayedEscrows.map((escrow, index) => {
+            // Find the original index to get escrowId
+            const originalIndex = escrows.indexOf(escrow);
+            return (
+              <EscrowCard
+                key={escrowIds[originalIndex]?.toString() || index}
+                escrowId={escrowIds[originalIndex]!}
+                escrow={escrow}
+                isExpanded={expandedId === escrowIds[originalIndex]}
+                onToggle={() => setExpandedId(expandedId === escrowIds[originalIndex] ? null : escrowIds[originalIndex]!)}
+                currentUser={address!}
+                onUpdate={loadEscrows}
+              />
+            );
+          })}
         </div>
       )}
     </div>
   );
+
+  return <PageLayout>{pageContent}</PageLayout>;
 }
 
 // ===== Escrow Card =====
@@ -251,24 +299,34 @@ function EscrowCard({
   const deadlineDate = new Date(Number(escrow.deadline) * 1000).toLocaleDateString();
 
   return (
-    <div className="glass-card overflow-hidden">
+    <div className={`glass-card overflow-hidden transition-all duration-300 ${isExpanded ? "border-white/[0.12]" : ""}`}>
       {/* Card Header */}
-      <button onClick={onToggle} className="w-full p-4 flex items-center gap-4 text-left hover:bg-white/[0.02] transition-colors">
-        <div className="w-10 h-10 rounded-lg bg-neon-glow flex items-center justify-center shrink-0">
+      <button onClick={onToggle} className="w-full p-4 md:p-5 flex items-center gap-4 text-left hover:bg-white/[0.02] transition-colors">
+        <div className={`w-11 h-11 rounded-xl bg-neon-glow flex items-center justify-center shrink-0 transition-transform duration-300 ${isExpanded ? "scale-105 shadow-neon" : ""}`}>
           <Shield className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-mono text-zinc-500">#{escrowId.toString()}</span>
-            <span className={`text-xs font-medium ${statusColor}`}>{statusLabel}</span>
+            <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide ${statusColor.replace("text-", "bg-").replace("-400", "-400/10")} ${statusColor}`}>
+              {statusLabel}
+            </span>
           </div>
           <p className="text-sm text-zinc-300 truncate">{escrow.description}</p>
-          <div className="flex items-center gap-4 mt-1 text-xs text-zinc-500">
-            <span>💰 {amountEth} OG</span>
-            <span>🕐 {deadlineDate}</span>
+          <div className="flex items-center gap-4 mt-1.5 text-xs text-zinc-500">
+            <span className="flex items-center gap-1">
+              <Banknote className="w-3 h-3" />
+              {(Number(escrow.amount) / 1e18).toFixed(4)} OG
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {new Date(Number(escrow.deadline) * 1000).toLocaleDateString()}
+            </span>
           </div>
         </div>
-        {isExpanded ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+        <div className={`shrink-0 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}>
+          <ChevronDown className="w-4 h-4 text-zinc-500" />
+        </div>
       </button>
 
       {/* Expanded Details */}
@@ -569,52 +627,59 @@ function EvidenceSection({
       {escrow.status === EscrowStatus.Disputed && (
         <div className="border-t border-white/[0.06] pt-4 space-y-3">
           <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-neon-cyan" />
-            AI Arbitration
-            <span className="text-xs text-zinc-500 font-normal">0G Compute</span>
+            <Sparkles className="w-4 h-4 text-neon-cyan" />
+            {t("disputes.arbitration.title")}
+            <span className="text-[10px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded">0G Compute</span>
           </h4>
 
           {!aiResult && !aiError && (
             <button
               onClick={handleAIArbitrate}
               disabled={aiLoading}
-              className="neon-button w-full flex items-center justify-center gap-2 py-2.5 text-sm"
+              className="w-full py-3 rounded-xl text-sm font-medium border border-neon-purple/20 bg-neon-purple/5 text-neon-purple hover:bg-neon-purple/10 hover:border-neon-purple/30 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {aiLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Analyzing evidence with AI...
+                  {t("disputes.arbitration.analyzing")}
                 </>
               ) : (
                 <>
                   <Cpu className="w-4 h-4" />
-                  Run AI Analysis
+                  {t("disputes.arbitration.analyze")}
                 </>
               )}
             </button>
           )}
 
           {aiError && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-xs">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-xs animate-fade-in">
               <AlertCircle className="w-3 h-3" />
               <span>{aiError}</span>
             </div>
           )}
 
           {aiResult && (
-            <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-3">
+            <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-3 animate-fade-in">
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-bold ${aiResult.buyerWins ? "text-blue-400" : "text-red-400"}`}>
-                  {aiResult.buyerWins ? "Buyer Wins" : "Seller Wins"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${aiResult.buyerWins ? "bg-blue-400/20 text-blue-400" : "bg-red-400/20 text-red-400"}`}>
+                    <Scale className="w-3 h-3" />
+                  </div>
+                  <span className={`text-sm font-bold ${aiResult.buyerWins ? "text-blue-400" : "text-red-400"}`}>
+                    {aiResult.buyerWins ? t("disputes.arbitration.buyerWins") : t("disputes.arbitration.sellerWins")}
+                  </span>
+                </div>
                 <span className="text-xs text-zinc-500">
-                  Confidence: <span className="text-white font-medium">{aiResult.confidence}%</span>
+                  {t("disputes.arbitration.confidence")}: <span className="text-white font-semibold">{aiResult.confidence}%</span>
                 </span>
               </div>
-              <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-1000 ${
-                    aiResult.buyerWins ? "bg-blue-400" : "bg-red-400"
+                  className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                    aiResult.buyerWins
+                      ? "bg-gradient-to-r from-blue-500 to-blue-400"
+                      : "bg-gradient-to-r from-red-500 to-red-400"
                   }`}
                   style={{ width: `${aiResult.confidence}%` }}
                 />
@@ -834,18 +899,18 @@ function ActionBtn({
   onClick: () => void;
 }) {
   const variantMap = {
-    cyan: "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20 hover:bg-neon-cyan/20",
-    green: "bg-emerald-400/10 text-emerald-400 border-emerald-400/20 hover:bg-emerald-400/20",
-    red: "bg-red-400/10 text-red-400 border-red-400/20 hover:bg-red-400/20",
-    yellow: "bg-amber-400/10 text-amber-400 border-amber-400/20 hover:bg-amber-400/20",
-    blue: "bg-blue-400/10 text-blue-400 border-blue-400/20 hover:bg-blue-400/20",
+    cyan: "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20 hover:bg-neon-cyan/20 hover:border-neon-cyan/30 hover:shadow-[0_0_15px_rgba(0,229,255,0.1)]",
+    green: "bg-emerald-400/10 text-emerald-400 border-emerald-400/20 hover:bg-emerald-400/20 hover:border-emerald-400/30 hover:shadow-[0_0_15px_rgba(52,211,153,0.1)]",
+    red: "bg-red-400/10 text-red-400 border-red-400/20 hover:bg-red-400/20 hover:border-red-400/30 hover:shadow-[0_0_15px_rgba(248,113,113,0.1)]",
+    yellow: "bg-amber-400/10 text-amber-400 border-amber-400/20 hover:bg-amber-400/20 hover:border-amber-400/30 hover:shadow-[0_0_15px_rgba(251,191,36,0.1)]",
+    blue: "bg-blue-400/10 text-blue-400 border-blue-400/20 hover:bg-blue-400/20 hover:border-blue-400/30 hover:shadow-[0_0_15px_rgba(96,165,250,0.1)]",
   };
 
   return (
     <button
       onClick={onClick}
       disabled={loading}
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-all ${variantMap[variant]} ${loading ? "opacity-50" : ""}`}
+      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium border transition-all duration-200 ${variantMap[variant]} ${loading ? "opacity-50 cursor-wait" : "active:scale-95"}`}
     >
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}
       {label}

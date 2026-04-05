@@ -101,15 +101,17 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 animate-slide-up">
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl glass-card p-8 md:p-12">
+      <section className="relative overflow-hidden rounded-3xl glass-card p-8 md:p-12 group">
         <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 via-transparent to-neon-purple/5" />
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-neon-cyan/5 blur-3xl group-hover:bg-neon-cyan/10 transition-all duration-700" />
+        <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-neon-purple/5 blur-3xl group-hover:bg-neon-purple/10 transition-all duration-700" />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-4">
             <div className="px-3 py-1 rounded-full text-xs font-medium bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20">
               {networkType === "turbo" ? t("common.turbo") : t("common.standard")} Network
             </div>
             {!isConnected && (
-              <div className="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <div className="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
                 {t("nav.walletNotConnected")}
               </div>
             )}
@@ -132,7 +134,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
             <span className="neon-text">{t("dashboard.hero.title")}</span>
           </h1>
-          <p className="text-zinc-400 text-lg max-w-2xl mb-8">
+          <p className="text-zinc-400 text-lg max-w-2xl mb-8 leading-relaxed">
             {t("dashboard.hero.description")}
           </p>
 
@@ -145,17 +147,19 @@ export default function DashboardPage() {
               <>
                 <Link
                   href="/create"
-                  className="neon-button flex items-center gap-2"
+                  className="neon-button flex items-center gap-2 group/btn"
                 >
                   <PlusCircle className="w-4 h-4" />
                   {t("dashboard.hero.createEscrow")}
+                  <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all" />
                 </Link>
                 <Link
                   href="/disputes"
-                  className="neon-button-outline flex items-center gap-2"
+                  className="neon-button-outline flex items-center gap-2 group/btn"
                 >
                   <Swords className="w-4 h-4" />
                   {t("dashboard.hero.manageDisputes")}
+                  <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover/btn:opacity-100 group-hover/btn:translate-x-0 transition-all" />
                 </Link>
               </>
             )}
@@ -282,21 +286,25 @@ function StatCard({
   color: "cyan" | "purple" | "blue" | "red";
 }) {
   const colorMap = {
-    cyan: "text-neon-cyan bg-neon-cyan/10",
-    purple: "text-neon-purple bg-neon-purple/10",
-    blue: "text-neon-blue bg-neon-blue/10",
-    red: "text-red-400 bg-red-400/10",
+    cyan: { bg: "bg-neon-cyan/10", text: "text-neon-cyan", border: "border-neon-cyan/10" },
+    purple: { bg: "bg-neon-purple/10", text: "text-neon-purple", border: "border-neon-purple/10" },
+    blue: { bg: "bg-neon-blue/10", text: "text-neon-blue", border: "border-neon-blue/10" },
+    red: { bg: "bg-red-400/10", text: "text-red-400", border: "border-red-400/10" },
   };
+  const c = colorMap[color];
 
   return (
-    <div className="stat-card text-center glass-card-hover">
-      <div
-        className={`w-12 h-12 rounded-xl ${colorMap[color]} flex items-center justify-center mb-2`}
-      >
-        <Icon className="w-6 h-6" />
+    <div className="stat-card text-left glass-card-hover group">
+      <div className="flex items-center justify-between mb-4">
+        <div
+          className={`w-11 h-11 rounded-xl ${c.bg} flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}
+        >
+          <Icon className={`w-5 h-5 ${c.text}`} />
+        </div>
+        <div className={`w-2 h-2 rounded-full ${c.bg} ${c.text} opacity-30`} />
       </div>
-      <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
-      <p className="text-sm text-zinc-400">{label}</p>
+      <p className="text-2xl font-bold text-white tabular-nums tracking-tight">{value}</p>
+      <p className="text-sm text-zinc-400 mt-0.5">{label}</p>
       <p className="text-xs text-zinc-500 mt-1">{sublabel}</p>
     </div>
   );
@@ -329,20 +337,20 @@ function QuickAction({
   return (
     <Wrapper {...(wrapperProps as any)}>
       <div
-        className={`glass-card-hover p-5 flex flex-col gap-3 ${
+        className={`glass-card-hover p-5 flex flex-col gap-3 group/action ${
           disabled ? "opacity-40 pointer-events-none" : "cursor-pointer"
         }`}
       >
-        <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-          <Icon className="w-5 h-5 text-zinc-300" />
+        <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center group-hover/action:bg-white/[0.08] transition-colors">
+          <Icon className="w-5 h-5 text-zinc-400 group-hover/action:text-neon-cyan transition-colors" />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-white">{title}</h3>
-          <p className="text-xs text-zinc-500 mt-1">{description}</p>
+          <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{description}</p>
         </div>
-        <div className="flex items-center gap-1 text-xs text-neon-cyan font-medium">
+        <div className="flex items-center gap-1 text-xs text-zinc-600 font-medium group-hover/action:text-neon-cyan transition-colors">
           {external ? (goLabel || t("dashboard.quickActions.openDocs")) : (goLabel || t("dashboard.quickActions.goToPage"))}
-          <ArrowRight className="w-3 h-3" />
+          <ArrowRight className="w-3 h-3 transition-transform group-hover/action:translate-x-1" />
         </div>
       </div>
     </Wrapper>
@@ -362,17 +370,24 @@ function StepCard({
   description: string;
   stepLabel: string;
 }) {
+  const stepColors = ["text-neon-cyan", "text-neon-purple", "text-neon-cyan"];
+  const stepBorderColors = ["border-neon-cyan/10", "border-neon-purple/10", "border-neon-cyan/10"];
+  const stepBgColors = ["bg-neon-cyan/5", "bg-neon-purple/5", "bg-neon-cyan/5"];
+
   return (
-    <div className="glass-card p-6 relative overflow-hidden">
-      <div className="absolute top-4 right-4 text-6xl font-black text-white/[0.03]">
+    <div className={`glass-card p-6 relative overflow-hidden group hover:border-white/[0.12] transition-all duration-300 ${stepBorderColors[step - 1]}`}>
+      <div className="absolute top-4 right-4 text-7xl font-black text-white/[0.02] group-hover:text-white/[0.04] transition-colors">
         {step}
       </div>
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-lg bg-neon-glow flex items-center justify-center">
-            <Icon className="w-5 h-5 text-white" />
+          <div className={`w-10 h-10 rounded-xl ${stepBgColors[step - 1]} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+            <Icon className={`w-5 h-5 ${stepColors[step - 1]}`} />
           </div>
           <span className="text-xs font-mono text-zinc-500">{stepLabel} {step}</span>
+          {step < 3 && (
+            <ArrowRight className="w-3 h-3 text-zinc-600 ml-auto hidden lg:block" />
+          )}
         </div>
         <h3 className="text-base font-semibold text-white mb-2">{title}</h3>
         <p className="text-sm text-zinc-400 leading-relaxed">{description}</p>
