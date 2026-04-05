@@ -555,25 +555,19 @@ async function sendTransaction(to: string, data: string, value?: string) {
     params: [txParams],
   });
 
-  // Wait for receipt
-  return new Promise<{ hash: string }>((resolve, reject) => {
-    const checkReceipt = async () => {
-      try {
-        const receipt = await ethereum.request({
-          method: "eth_getTransactionReceipt",
-          params: [txHash],
-        });
-        if (receipt) {
-          resolve({ hash: txHash });
-        } else {
-          setTimeout(checkReceipt, 2000);
-        }
-      } catch (err) {
-        reject(err);
-      }
-    };
-    setTimeout(checkReceipt, 2000);
+  // Wait for receipt via viem public client (more reliable than MetaMask polling)
+  const client = getPublicClient();
+  const receipt = await client.waitForTransactionReceipt({
+    hash: txHash as `0x${string}`,
+    timeout: 120_000, // 2 min timeout for 0G testnet
+    retryDelay: 3_000,
   });
+
+  if (receipt.status === "reverted") {
+    throw new Error(`Transaction reverted. Hash: ${txHash}`);
+  }
+
+  return { hash: txHash as string, receipt };
 }
 
 export async function createEscrow(
@@ -590,6 +584,50 @@ export async function createEscrow(
   });
   const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
   return result.hash;
+}
+
+/**
+ * Create escrow + fund in one call (two sequential transactions).
+ * Returns { createHash, fundHash, escrowId }.
+ */
+export async function createAndFundEscrow(
+  seller: string,
+  amount: bigint,
+  description: string,
+  deadlineDuration: number
+): Promise<{ createHash: string; fundHash: string }> {
+  // Step 1: createEscrow (nonpayable)
+  const { encodeFunctionData } = await import("viem");
+  const createData = encodeFunctionData({
+    abi: TRUSTGATE_ESCROW_ABI,
+    functionName: "createEscrow",
+    args: [seller as Address, amount, description, BigInt(deadlineDuration)],
+  });
+  const createResult = await sendTransaction(TRUSTGATE_ADDRESS, createData);
+
+  // Step 2: fundEscrow (payable) — escrowId = escrowCount - 1
+  // Read current count to determine the new escrow ID
+  const countBefore = await getEscrowCount();
+  const escrowId = countBefore; // the newly created escrow
+
+  const feeWei = (amount * BigInt(100)) / BigInt(10000); // 1%
+  const totalRequired = amount + feeWei;
+
+  const fundData = encodeFunctionData({
+    abi: TRUSTGATE_ESCROW_ABI,
+    functionName: "fundEscrow",
+    args: [escrowId],
+  });
+  const fundResult = await sendTransaction(
+    TRUSTGATE_ADDRESS,
+    fundData,
+    "0x" + totalRequired.toString(16)
+  );
+
+  return {
+    createHash: createResult.hash,
+    fundHash: fundResult.hash,
+  };
 }
 
 export async function fundEscrow(
