@@ -4,7 +4,9 @@
  */
 
 import { createPublicClient, http, type Address } from "viem";
+import { getWalletClient, getPublicClient as getWagmiPublicClient } from "@wagmi/core";
 import { L1_RPC, zgTestnet } from "./config";
+import { config as wagmiConfig } from "@/lib/wagmi";
 
 // ===== Types =====
 
@@ -524,50 +526,59 @@ export async function getEscrowVoters(escrowId: bigint): Promise<string[]> {
   return voters as string[];
 }
 
-// ===== Write Operations (via window.ethereum — browser only) =====
+// ===== Write Operations (via wagmi — proper chain-aware for OKX/MetaMask/etc.) =====
 
-async function getEthereumProvider() {
-  if (typeof window === "undefined") {
-    throw new Error("Window provider is only available in the browser");
+/**
+ * Send a contract write transaction via wagmi.
+ * This ensures the correct chain is used regardless of wallet provider (OKX, MetaMask, etc.).
+ * - walletClient.writeContract sends the tx through the connected wallet
+ * - publicClient.waitForTransactionReceipt polls the chain RPC for confirmation
+ */
+// Extract only write function names from the ABI (exclude view/pure)
+type WriteFunctionName = Extract<
+  (typeof TRUSTGATE_ESCROW_ABI)[number],
+  { type: "function"; stateMutability: "nonpayable" | "payable" }
+>["name"];
+
+async function writeContractViaWagmi(
+  functionName: WriteFunctionName,
+  args: readonly unknown[],
+  value?: bigint
+): Promise<string> {
+  // Get the wallet client from wagmi config (works with OKX, MetaMask, etc.)
+  const walletClient = await getWalletClient(wagmiConfig);
+
+  if (!walletClient) {
+    throw new Error("Wallet not connected. Please connect your wallet first.");
   }
-  const ethereum = (window as any).ethereum;
-  if (!ethereum) {
-    throw new Error("No Ethereum provider found. Please install MetaMask.");
+
+  // Send the transaction through the connected wallet
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hash = await walletClient.writeContract({
+    address: TRUSTGATE_ADDRESS,
+    abi: TRUSTGATE_ESCROW_ABI,
+    functionName,
+    args: args as any,
+    value: value as any,
+    chain: walletClient.chain,
+  } as any);
+
+  // Wait for receipt using wagmi's public client (same chain as wallet)
+  const publicClient = getWagmiPublicClient(wagmiConfig);
+  if (!publicClient) {
+    throw new Error("Failed to get public client for chain confirmation.");
   }
-  return ethereum;
-}
-
-async function sendTransaction(to: string, data: string, value?: string) {
-  const ethereum = await getEthereumProvider();
-
-  const accounts = await ethereum.request({
-    method: "eth_requestAccounts",
-  });
-  const from = accounts[0];
-
-  const txParams: any = { to, from, data };
-  if (value) {
-    txParams.value = value;
-  }
-
-  const txHash = await ethereum.request({
-    method: "eth_sendTransaction",
-    params: [txParams],
-  });
-
-  // Wait for receipt via viem public client (more reliable than MetaMask polling)
-  const client = getPublicClient();
-  const receipt = await client.waitForTransactionReceipt({
-    hash: txHash as `0x${string}`,
-    timeout: 120_000, // 2 min timeout for 0G testnet
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash,
+    timeout: 120_000,
     retryDelay: 3_000,
   });
 
   if (receipt.status === "reverted") {
-    throw new Error(`Transaction reverted. Hash: ${txHash}`);
+    throw new Error(`Transaction reverted. Hash: ${hash}`);
   }
 
-  return { hash: txHash as string, receipt };
+  return hash;
 }
 
 export async function createEscrow(
@@ -576,19 +587,16 @@ export async function createEscrow(
   description: string,
   deadlineDuration: number
 ): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "createEscrow",
-    args: [seller as Address, amount, description, BigInt(deadlineDuration)],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("createEscrow", [
+    seller as Address,
+    amount,
+    description,
+    BigInt(deadlineDuration),
+  ]);
 }
 
 /**
  * Create escrow + fund in one call (two sequential transactions).
- * Returns { createHash, fundHash, escrowId }.
  */
 export async function createAndFundEscrow(
   seller: string,
@@ -597,55 +605,32 @@ export async function createAndFundEscrow(
   deadlineDuration: number
 ): Promise<{ createHash: string; fundHash: string }> {
   // Step 1: createEscrow (nonpayable)
-  const { encodeFunctionData } = await import("viem");
-  const createData = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "createEscrow",
-    args: [seller as Address, amount, description, BigInt(deadlineDuration)],
-  });
-  const createResult = await sendTransaction(TRUSTGATE_ADDRESS, createData);
+  const createHash = await writeContractViaWagmi("createEscrow", [
+    seller as Address,
+    amount,
+    description,
+    BigInt(deadlineDuration),
+  ]);
 
-  // Step 2: fundEscrow (payable) — escrowId = escrowCount - 1
-  // Read current count to determine the new escrow ID
-  const countBefore = await getEscrowCount();
-  const escrowId = countBefore; // the newly created escrow
-
+  // Step 2: fundEscrow (payable) — the new escrow ID is the current count
+  const escrowId = await getEscrowCount();
   const feeWei = (amount * BigInt(100)) / BigInt(10000); // 1%
   const totalRequired = amount + feeWei;
 
-  const fundData = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "fundEscrow",
-    args: [escrowId],
-  });
-  const fundResult = await sendTransaction(
-    TRUSTGATE_ADDRESS,
-    fundData,
-    "0x" + totalRequired.toString(16)
+  const fundHash = await writeContractViaWagmi(
+    "fundEscrow",
+    [escrowId],
+    totalRequired
   );
 
-  return {
-    createHash: createResult.hash,
-    fundHash: fundResult.hash,
-  };
+  return { createHash, fundHash };
 }
 
 export async function fundEscrow(
   escrowId: bigint,
   amount: bigint
 ): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "fundEscrow",
-    args: [escrowId],
-  });
-  const result = await sendTransaction(
-    TRUSTGATE_ADDRESS,
-    data,
-    "0x" + amount.toString(16)
-  );
-  return result.hash;
+  return writeContractViaWagmi("fundEscrow", [escrowId], amount);
 }
 
 export async function submitEvidence(
@@ -654,97 +639,49 @@ export async function submitEvidence(
   filename: string,
   description: string
 ): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "submitEvidence",
-    args: [escrowId, rootHash as `0x${string}`, filename, description],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("submitEvidence", [
+    escrowId,
+    rootHash as `0x${string}`,
+    filename,
+    description,
+  ]);
 }
 
 export async function disputeEscrow(escrowId: bigint): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "disputeEscrow",
-    args: [escrowId],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("disputeEscrow", [escrowId]);
 }
 
 export async function recordAIVerdict(
   escrowId: bigint,
   aiVerdictHash: string
 ): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "recordAIVerdict",
-    args: [escrowId, aiVerdictHash as `0x${string}`],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("recordAIVerdict", [
+    escrowId,
+    aiVerdictHash as `0x${string}`,
+  ]);
 }
 
 export async function castVote(
   escrowId: bigint,
   voteForBuyer: boolean
 ): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "castVote",
-    args: [escrowId, voteForBuyer],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("castVote", [escrowId, voteForBuyer]);
 }
 
 export async function resolveEscrow(escrowId: bigint): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "resolveEscrow",
-    args: [escrowId],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("resolveEscrow", [escrowId]);
 }
 
 export async function releaseEscrow(escrowId: bigint): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "releaseEscrow",
-    args: [escrowId],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("releaseEscrow", [escrowId]);
 }
 
 export async function refundEscrow(escrowId: bigint): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "refundEscrow",
-    args: [escrowId],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("refundEscrow", [escrowId]);
 }
 
 export async function withdrawFunds(): Promise<string> {
-  const { encodeFunctionData } = await import("viem");
-  const data = encodeFunctionData({
-    abi: TRUSTGATE_ESCROW_ABI,
-    functionName: "withdraw",
-    args: [],
-  });
-  const result = await sendTransaction(TRUSTGATE_ADDRESS, data);
-  return result.hash;
+  return writeContractViaWagmi("withdraw", []);
 }
 
 // ===== Status Helpers =====
