@@ -14,9 +14,13 @@ export default function ClientLayout({
     setMounted(true);
   }, []);
 
-  if (!mounted) {
-    return null;
-  }
-
-  return <ContextProvider>{children}</ContextProvider>;
+  // CRITICAL: Always render WagmiProvider, even before mount.
+  // Returning null here destroys the WagmiProvider context on navigation,
+  // causing wallet disconnection on every page transition.
+  // Instead, use CSS to hide content during hydration.
+  return (
+    <div style={mounted ? undefined : { visibility: "hidden" }}>
+      <ContextProvider>{children}</ContextProvider>
+    </div>
+  );
 }

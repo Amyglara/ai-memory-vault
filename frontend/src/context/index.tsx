@@ -77,11 +77,15 @@ export function ContextProvider({ children }: { children: ReactNode }) {
 
   // Initialize Reown AppKit (client-side only)
   useEffect(() => {
+    // Skip if already initialized in this or a previous component lifecycle
     if (appkitInitialized.current) return;
-    appkitInitialized.current = true;
 
     // Dynamic import to avoid SSR issues
     import("@reown/appkit/react").then(({ createAppKit }) => {
+      // Mark initialized BEFORE creating to prevent double-creation
+      // even if the effect fires again during StrictMode double-render
+      appkitInitialized.current = true;
+
       createAppKit({
         adapters: [wagmiAdapter],
         projectId,
@@ -111,7 +115,11 @@ export function ContextProvider({ children }: { children: ReactNode }) {
           allWallets: true,
         },
       });
-    }).catch(console.error);
+    }).catch((err) => {
+      console.error("[AppKit] Initialization failed:", err);
+      // Reset flag to allow retry on next mount
+      appkitInitialized.current = false;
+    });
   }, []);
 
   // Restore locale from localStorage

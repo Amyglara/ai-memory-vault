@@ -12,9 +12,8 @@ export const wagmiAdapter = new WagmiAdapter({
     [zgTestnet.id]: http(),
   },
   ssr: true,
-  storage: createStorage({
-    storage: typeof window !== "undefined" ? window.localStorage : undefined,
-  }),
+  // Use createStorage without custom storage — wagmi handles SSR gracefully
+  // by falling back to in-memory storage on the server and localStorage on the client
 });
 
 // Re-export the wagmi config from adapter

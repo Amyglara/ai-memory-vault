@@ -72,7 +72,6 @@ contract TrustGateEscrow {
     uint256 public constant MIN_VOTERS = 3;              // Minimum arbitrators for voting
     uint256 public constant MAX_VOTERS = 10;             // Maximum arbitrators per dispute
     uint256 public constant DEFAULT_DEADLINE_EXTENSION = 7 days; // Default evidence deadline
-    uint256 public constant ARBITRATOR_REWARD_PER_WIN = 500; // 5% of fee per winning arbitrator
 
     // ============================================================
     // State
@@ -191,6 +190,8 @@ contract TrustGateEscrow {
     error NoFundsToClaim(uint256 escrowId);
     error InsufficientBalance();
     error NotOwner(address caller);
+    error MaxVotersReached(uint256 escrowId, uint256 currentVoters);
+    error AIVerdictAlreadySet(uint256 escrowId);
 
     // ============================================================
     // Modifiers
@@ -379,6 +380,11 @@ contract TrustGateEscrow {
         escrowExists(escrowId)
         inStatus(escrowId, EscrowStatus.Disputed)
     {
+        // Prevent overwriting an existing AI verdict
+        if (arbitrations[escrowId].aiVerdictHash != bytes32(0)) {
+            revert AIVerdictAlreadySet(escrowId);
+        }
+
         arbitrations[escrowId].escrowId = escrowId;
         arbitrations[escrowId].aiVerdictHash = aiVerdictHash;
 
@@ -407,6 +413,11 @@ contract TrustGateEscrow {
 
         // Cannot vote twice
         if (hasVoted[escrowId][msg.sender]) revert AlreadyVoted(escrowId, msg.sender);
+
+        // Enforce maximum number of voters
+        if (escrowVoters[escrowId].length >= MAX_VOTERS) {
+            revert NotArbitratorEligible(escrowId, msg.sender);
+        }
 
         // Record vote
         hasVoted[escrowId][msg.sender] = true;
@@ -442,10 +453,14 @@ contract TrustGateEscrow {
         Arbitration storage arb = arbitrations[escrowId];
         if (arb.totalVoters < MIN_VOTERS) revert ArbitrationNotReady(escrowId);
 
+        // Prevent voters from resolving their own dispute (conflict of interest)
+        if (hasVoted[escrowId][msg.sender]) revert NotArbitratorEligible(escrowId, msg.sender);
+
         Escrow storage e = escrows[escrowId];
 
         // Determine winner by majority vote
-        bool buyerWins = arb.votesForBuyer > (arb.totalVoters / 2);
+        // Tie goes to seller (buyer failed to prove their case beyond reasonable doubt)
+        bool buyerWins = arb.votesForBuyer * 2 > arb.totalVoters;
         arb.buyerWins = buyerWins;
         arb.resolved = true;
 
