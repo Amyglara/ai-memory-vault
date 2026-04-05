@@ -612,8 +612,9 @@ export async function createAndFundEscrow(
     BigInt(deadlineDuration),
   ]);
 
-  // Step 2: fundEscrow (payable) — the new escrow ID is the current count
-  const escrowId = await getEscrowCount();
+  // Step 2: fundEscrow (payable) — getEscrowCount() returns escrowCount (post-increment),
+  // so the actual new escrow ID is count - 1
+  const escrowId = (await getEscrowCount()) - BigInt(1);
   const feeWei = (amount * BigInt(100)) / BigInt(10000); // 1%
   const totalRequired = amount + feeWei;
 
