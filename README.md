@@ -1,163 +1,169 @@
-# AI Memory Vault
+# TrustGate
 
-> **Decentralized AI Agent Memory Bank** — Built on 0G Network
+> **Decentralized Escrow & AI-Powered Arbitration Protocol** — Built on 0G Network
 
-[![Deployed on Vercel](https://img.shields.io/badge/Vercel-Live-00E5FF?style=flat-square&logo=vercel)](https://frontend-eight-indol-98.vercel.app)
+[![Deployed on Vercel](https://img.shields.io/badge/Vercel-Live-00E5FF?style=flat-square&logo=vercel)](https://0g.bitdong.xyz)
 [![0G Network](https://img.shields.io/badge/0G-Galileo%20Testnet-7C3AED?style=flat-square)](https://chainscan-galileo.0g.ai)
-[![Next.js](https://img.shields.io/badge/Next.js-15.5.14-black?style=flat-square&logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5.14-black?style=flat-square&logo=next.js)]
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?style=flat-square&logo=solidity)]
 
-AI Memory Vault is a full-stack decentralized application that gives AI Agents persistent, verifiable memory on the blockchain. Upload knowledge documents to 0G Storage, chat with AI via 0G Compute with RAG retrieval, register agent identities, and anchor proof-of-existence on-chain.
+TrustGate is a full-stack decentralized escrow protocol with AI-powered dispute resolution. Create trust-backed agreements, lock funds in smart contracts, submit evidence to decentralized storage, and let AI + community arbitrators resolve disputes fairly.
 
 ## 🌐 Live Demo
 
-**https://frontend-eight-indol-98.vercel.app**
+**https://0g.bitdong.xyz**
 
 ## ✨ Features
 
-### Core
-- **Decentralized Storage** — Upload & retrieve documents via 0G Storage (Merkle-verified integrity)
-- **AI Chat with RAG** — LLM inference via 0G Compute with retrieval-augmented generation from stored docs
-- **On-chain Anchoring** — Mint Merkle root hashes on 0G Chain for immutable proof-of-existence
-- **Agent Identity System** — Register AI Agent identities on-chain with file association
-- **Real-time Dashboard** — Live on-chain statistics (total files, agents, user data)
+### Core Protocol
+- **Escrow Creation** — Buyers create trust-backed agreements specifying seller, amount, description, and time-locked deadline
+- **Fund Locking** — Native token (OG) deposits are held securely in the smart contract
+- **Evidence Anchoring** — Both parties submit evidence to 0G Storage; Merkle root hashes anchor data integrity on-chain
+- **Dispute Resolution** — AI analyzes evidence via 0G Compute + community arbitrators vote with weighted consensus
+- **Auto Distribution** — Funds automatically distribute based on combined AI + arbitrator verdict
+- **Safety Mechanisms** — Time-locked refunds, pull-payment pattern to prevent reentrancy, party-only voting restrictions
 
-### UX
-- Cyberpunk Neon theme with Glassmorphism design
-- Reown AppKit for seamless wallet connection
-- Turbo/Standard network toggle for 0G Storage
+### AI Arbitration (0G Compute)
+- **DeepSeek R1 70B** model for reasoning-heavy dispute analysis
+- Evidence retrieved from 0G Storage as RAG context
+- Returns structured verdict: `{ buyerWins, confidence, reasoning }`
+- AI verdict hash recorded on-chain for immutability
+
+### Hybrid Arbitration Mechanism
+- AI produces an advisory verdict with confidence score
+- 3 arbitrators cast independent votes (simple majority)
+- Arbitrators cannot vote on their own escrows
+- Resolution triggers automatic fund distribution
+
+### Frontend
+- 4 functional pages: Dashboard, Create Escrow, Disputes, Evidence Library
+- Real-time wallet connection via Reown AppKit (OKX Wallet, MetaMask, etc.)
+- EN/ZH bilingual (i18n)
+- Cyberpunk Neon design theme with glassmorphism
 - Responsive design (mobile + desktop)
 
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Frontend (Next.js)                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐ │
-│  │Dashboard │ │  Upload  │ │   Chat   │ │ Agents  │ │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬────┘ │
-│       │            │            │             │       │
-│  ┌────┴────────────┴────────────┴─────────────┴────┐ │
-│  │            Contract Layer (viem)                 │ │
-│  │     readContract + encodeFunctionData             │ │
-│  └────────┬────────────┬──────────────┬─────────────┘ │
-└───────────┼────────────┼──────────────┼───────────────┘
-            │            │              │
-   ┌────────┴───┐  ┌─────┴─────┐  ┌───┴────────────┐
-   │ 0G Storage │  │ 0G Compute│  │ MemoryVault     │
-   │ (SDK)      │  │ (Broker)  │  │ (Smart Contract)│
-   │            │  │           │  │                  │
-   │ • Merkle   │  │ • qwen    │  │ • anchorFile    │
-   │ • Upload   │  │ • RAG     │  │ • registerAgent │
-   │ • Download │  │ • Stream  │  │ • linkFile      │
-   └────────────┘  └───────────┘  └──────────────────┘
-```
+```mermaid
+graph TB
+    subgraph Frontend [Next.js Frontend]
+        Dashboard[/ Dashboard]
+        Create[/create]
+        Disputes[/disputes]
+        Evidence[/evidence]
+    end
 
-## 🔧 Tech Stack
+    subgraph ContractLayer [contracts.ts]
+        Reads[Read Functions]
+        Writes[Write Functions via wagmi]
+    end
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | Next.js 15.5 + React 19 + TypeScript |
-| **Styling** | Tailwind CSS 3.4 (Cyberpunk Neon theme) |
-| **Wallet** | Reown AppKit + wagmi 2.x + viem 2.x |
-| **Storage** | @0glabs/0g-ts-sdk 0.3.0 (Turbo/Standard) |
-| **Compute** | @0glabs/0g-serving-broker 0.6.5 (streaming SSE) |
-| **Contracts** | Solidity 0.8.24 + Hardhat + ethers v6 |
-| **Chain** | 0G Galileo Testnet (Chain ID: 16602) |
+    subgraph OnChain [0G Galileo Testnet]
+        Escrow[TrustGateEscrow.sol]
+    end
 
-## 📋 Smart Contract
+    subgraph Services [0G Services]
+        Storage[0G Storage]
+        Compute[0G Compute - DeepSeek R1]
+    end
 
-**MemoryVault.sol** — [`0x7826Ac2d7DC10Da069498268f22E8346cB1f082b`](https://chainscan-galileo.0g.ai/address/0x7826Ac2d7DC10Da069498268f22E8346cB1f082b)
-
-### Key Functions
-| Function | Description |
-|----------|-------------|
-| `anchorFile(rootHash, filename, fileSize, contentType)` | Store Merkle root on-chain |
-| `registerAgent(name, description, memoryRoot)` | Create AI agent identity |
-| `linkFileToAgent(fileId, agentId)` | Associate file with agent |
-| `getFilesByOwner(address)` | Query user's files |
-| `getAgentsByOwner(address)` | Query user's agents |
-| `getAgentFiles(agentId)` | Get agent's linked files |
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js >= 18
-- MetaMask or compatible wallet
-- [0G Testnet Faucet](https://faucet.0g.ai) for testnet OG tokens
-
-### Quick Start
-
-```bash
-# 1. Clone
-git clone https://github.com/Amyglara/ai-memory-vault.git
-cd ai-memory-vault
-
-# 2. Install frontend dependencies
-cd frontend && npm install --legacy-peer-deps
-
-# 3. Configure environment
-cp .env.local.example .env.local
-# NEXT_PUBLIC_PROJECT_ID is pre-configured for Reown AppKit
-
-# 4. Start dev server
-npm run dev
-```
-
-### Deploy Contracts (optional)
-
-```bash
-cd contracts && npm install
-npx hardhat run scripts/deploy.ts --network galileo
+    Dashboard --> Reads
+    Create --> Writes
+    Disputes --> Reads & Writes
+    Evidence --> Reads
+    Reads --> Escrow
+    Writes --> Escrow
+    Disputes --> Storage
+    Disputes --> Compute
 ```
 
 ## 📁 Project Structure
 
 ```
-ai-memory-vault/
-├── frontend/                # Next.js application
+/Users/bitdong/Projects/0g-hackathon/
+├── contracts/
+│   ├── contracts/TrustGateEscrow.sol   # Core escrow + evidence + arbitration contract
+│   ├── scripts/deploy.ts               # Deployment script
+│   └── test/TrustGateEscrow.test.ts    # 44/44 tests passing
+├── frontend/
 │   ├── src/
-│   │   ├── app/             # Pages & API Routes
-│   │   │   ├── page.tsx           # Dashboard (home)
-│   │   │   ├── upload/page.tsx    # File upload to 0G Storage
-│   │   │   ├── chat/page.tsx      # AI chat with RAG
-│   │   │   └── agents/page.tsx    # Agent identity management
+│   │   ├── app/
+│   │   │   ├── page.tsx                # Dashboard
+│   │   │   ├── create/page.tsx         # Create escrow form
+│   │   │   ├── disputes/page.tsx       # Manage disputes + evidence + AI arbitration
+│   │   │   ├── evidence/page.tsx       # Evidence library + download
+│   │   │   └── api/
+│   │   │       ├── compute/route.ts    # 0G Compute API (query, arbitrate, etc.)
+│   │   │       └── storage/route.ts    # 0G Storage download proxy
 │   │   ├── components/
-│   │   │   ├── pages/            # Page-level components
-│   │   │   └── common/           # Shared UI components
+│   │   │   ├── layout/Navbar.tsx       # Navigation with wallet connect
+│   │   │   ├── pages/DashboardPage.tsx # Stats + quick actions
+│   │   │   └── common/FileDropzone.tsx # Drag & drop file upload
 │   │   └── lib/
-│   │       ├── contracts.ts      # On-chain interaction layer
-│   │       ├── storage.ts        # 0G Storage SDK wrapper
-│   │       ├── compute.ts        # 0G Compute broker wrapper
-│   │       ├── config.ts         # Network configuration
-│   │       └── wagmi.ts          # Wallet connection
-│   └── .env.local                # Environment variables
-├── contracts/               # Hardhat smart contracts
-│   └── contracts/
-│       └── MemoryVault.sol  # Main contract
-├── storage-starter/         # 0G Storage TS reference
-├── storage-web-starter/     # 0G Storage Web reference
-├── compute-starter/         # 0G Compute TS reference
-└── storage-go-starter/      # 0G Storage Go reference
+│   │       ├── contracts.ts            # Smart contract interaction layer
+│   │       ├── compute.ts              # 0G Compute broker + arbitrate()
+│   │       ├── storage.ts              # 0G Storage SDK wrapper
+│   │       ├── i18n.ts                 # EN/ZH translations
+│   │       └── wagmi.ts                # wagmi + Reown AppKit config
+│   └── package.json
+└── README.md
 ```
 
-## 🔐 Security
+## ⚡ Tech Stack
 
-- All contract writes require MetaMask wallet signature
-- Merkle tree verification ensures file integrity
-- No private keys stored client-side
-- Environment variables are server-only (PRIVATE_KEY never exposed)
+| Layer | Technology |
+|-------|-----------|
+| Smart Contract | Solidity 0.8.24, Hardhat, ethers v6 |
+| Frontend | Next.js 15, TypeScript, Tailwind CSS |
+| Wallet | wagmi v2, Reown AppKit, viem |
+| Storage | @0glabs/0g-ts-sdk (Merkle-verified) |
+| AI Compute | @0glabs/0g-serving-broker (DeepSeek R1 70B) |
+| Blockchain | 0G Galileo Testnet (Chain ID: 16602) |
+
+## 🔗 Smart Contract
+
+**Address**: `0xe65176BdaEBbCb9a4D12b8bAAaf95E7f3c68cd4a` (verified on ChainScan)
+
+**Key Functions**:
+| Function | Description |
+|----------|-------------|
+| `createEscrow(seller, amount, desc, deadline)` | Buyer creates escrow agreement |
+| `fundEscrow(escrowId)` | Buyer deposits OG tokens (payable) |
+| `submitEvidence(escrowId, rootHash, filename, desc)` | Either party submits evidence |
+| `disputeEscrow(escrowId)` | Trigger dispute resolution |
+| `castVote(escrowId, voteForBuyer)` | Arbitrators cast votes |
+| `resolveEscrow(escrowId, aiVerdict, buyerWins)` | Execute final verdict + distribute funds |
+| `releaseEscrow(escrowId)` | Normal release (no dispute) |
+| `refundEscrow(escrowId)` | Timeout refund (deadline expired) |
+
+[View on ChainScan](https://chainscan-galileo.0g.ai/address/0xe65176BdaEBbCb9a4D12b8bAAaf95E7f3c68cd4a)
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Hardhat (for contracts)
+
+### Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Contract Setup
+```bash
+cd contracts
+npm install
+npx hardhat test
+npx hardhat run scripts/deploy.ts --network galileo
+```
 
 ## 🏆 Hackathon
 
-**0G APAC Hackathon** — Track 1: Agent Infrastructure & OpenClaw Lab
+Built for the **0G APAC Hackathon** (HackQuest) — Agent Infrastructure Track.
 
-### User Flow
-1. **Connect Wallet** — MetaMask on 0G Galileo Testnet
-2. **Upload Document** — File → 0G Storage (Merkle tree) → Anchor root hash on-chain
-3. **Register Agent** — Create AI agent identity with name, description, memory root
-4. **Link Files** — Associate stored documents with agent for RAG context
-5. **AI Chat** — Query AI with RAG retrieval from agent's linked documents
-
-## 📝 License
+## 📄 License
 
 MIT

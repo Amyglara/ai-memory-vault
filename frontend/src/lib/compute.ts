@@ -382,6 +382,126 @@ export async function getAccountInfo(): Promise<any> {
 }
 
 /**
+ * AI Arbitration — analyze dispute evidence and produce a verdict.
+ * Used by TrustGate's dispute resolution pipeline via 0G Compute.
+ *
+ * @param disputeDescription - The dispute description from the escrow
+ * @param evidenceContexts - Array of { filename, content } pairs retrieved from 0G Storage
+ * @returns verdict object + chatId for payment processing
+ */
+export async function arbitrate(
+  disputeDescription: string,
+  evidenceContexts: Array<{ filename: string; content: string }>
+): Promise<{
+  verdict: { buyerWins: boolean; confidence: number; reasoning: string };
+  chatId: string;
+  model: string;
+  provider: string;
+}> {
+  const broker = await getBroker();
+
+  // Use deepseek-r1-70b for reasoning-heavy arbitration
+  const providerAddress = OFFICIAL_PROVIDERS["deepseek-r1-70b"];
+  if (!providerAddress) {
+    throw new Error("Arbitration provider (deepseek-r1-70b) not found");
+  }
+
+  // Arbitration system prompt
+  const systemMsg: ChatMessage = {
+    role: "system",
+    content:
+      "You are an impartial dispute resolution AI for the TrustGate platform. " +
+      "You analyze evidence submitted by both parties in an escrow dispute and produce a fair verdict.\n\n" +
+      "CRITICAL: You MUST respond with ONLY a valid JSON object in the following format, with no other text:\n" +
+      '```json\n{"buyerWins": boolean, "confidence": number, "reasoning": string}\n```\n\n' +
+      "- buyerWins: true if the buyer should receive the escrowed funds, false if the seller should\n" +
+      "- confidence: your confidence level from 0 to 100\n" +
+      "- reasoning: a concise explanation of your decision (2-4 sentences)\n\n" +
+      "Be objective and fair. Consider the quality and relevance of evidence from both sides.",
+  };
+
+  // Build evidence context
+  const evidenceBlock = evidenceContexts
+    .map((e) => `--- Evidence: ${e.filename} ---\n${e.content}`)
+    .join("\n\n");
+
+  const userMsg: ChatMessage = {
+    role: "user",
+    content: `Dispute Description:\n${disputeDescription}\n\nSubmitted Evidence:\n${evidenceBlock || "(No evidence submitted)"}`,
+  };
+
+  // Get service metadata
+  const { endpoint, model } = await broker.inference.getServiceMetadata(
+    providerAddress
+  );
+
+  // Generate auth headers
+  const headers = await broker.inference.getRequestHeaders(
+    providerAddress,
+    userMsg.content
+  );
+
+  const headerObj: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value === "string") {
+      headerObj[key] = value;
+    }
+  }
+
+  // Create OpenAI client
+  const openai = new OpenAI({
+    baseURL: endpoint,
+    apiKey: "",
+  });
+
+  const completion = await openai.chat.completions.create(
+    {
+      model,
+      messages: [
+        { role: systemMsg.role, content: systemMsg.content },
+        { role: userMsg.role, content: userMsg.content },
+      ],
+    },
+    { headers: headerObj }
+  );
+
+  const content = completion.choices[0]?.message?.content || "";
+  const chatId = completion.id;
+
+  // Parse the verdict JSON from the response
+  let verdict: { buyerWins: boolean; confidence: number; reasoning: string };
+  try {
+    // Extract JSON from potential markdown code blocks
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("No JSON found in response");
+    }
+    verdict = JSON.parse(jsonMatch[0]);
+
+    // Validate fields
+    if (typeof verdict.buyerWins !== "boolean") verdict.buyerWins = false;
+    if (typeof verdict.confidence !== "number") verdict.confidence = 50;
+    if (typeof verdict.reasoning !== "string") verdict.reasoning = "AI analysis completed.";
+  } catch {
+    // Fallback if parsing fails
+    verdict = {
+      buyerWins: false,
+      confidence: 50,
+      reasoning: `Raw AI response: ${content.slice(0, 300)}`,
+    };
+  }
+
+  // Process payment
+  try {
+    await broker.inference.processResponse(providerAddress, chatId, content);
+  } catch (err) {
+    console.warn(`[Compute] Arbitration payment warning: ${err}`);
+  }
+
+  return { verdict, chatId, model, provider: providerAddress };
+}
+
+/**
  * Download a file from 0G Storage for RAG context.
  */
 export async function fetchFileContent(

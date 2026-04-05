@@ -5,7 +5,7 @@ import { useI18n } from "@/context";
 import { getEvidenceCount, getEvidence } from "@/lib/contracts";
 import { EXPLORER_URL } from "@/lib/config";
 import { truncateAddress } from "@/lib/utils";
-import { FileSearch, Loader2, Search, ExternalLink, FileText } from "lucide-react";
+import { FileSearch, Loader2, Search, ExternalLink, FileText, Download } from "lucide-react";
 import type { Evidence } from "@/lib/contracts";
 
 export default function EvidencePage() {
@@ -15,6 +15,7 @@ export default function EvidencePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const loadEvidence = useCallback(async () => {
     setLoading(true);
@@ -50,6 +51,21 @@ export default function EvidencePage() {
       ev.rootHash.toLowerCase().includes(q)
     );
   });
+
+  const handleDownload = async (ev: Evidence) => {
+    setDownloading(ev.rootHash);
+    try {
+      const { downloadByRootHash, downloadBlobAsFile, getNetworkConfig } = await import("@/lib/storage");
+      const networkConfig = getNetworkConfig("turbo");
+      const [data, err] = await downloadByRootHash(ev.rootHash, networkConfig.storageRpc);
+      if (err || !data) throw new Error(err?.message || "Download failed");
+      downloadBlobAsFile(data, ev.filename);
+    } catch (err: any) {
+      setError(err?.message || "Download failed");
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   return (
     <div className="animate-slide-up space-y-6">
@@ -110,6 +126,7 @@ export default function EvidencePage() {
                   <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase">{t("evidence.timestamp")}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase">{t("evidence.description")}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 uppercase">{t("evidence.rootHash")}</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -123,6 +140,31 @@ export default function EvidencePage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <code className="text-xs font-mono text-zinc-500 truncate max-w-[100px]">{ev.rootHash.slice(0, 10)}...</code>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleDownload(ev)}
+                          disabled={downloading === ev.rootHash}
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-neon-cyan hover:bg-neon-cyan/10 transition-all disabled:opacity-50"
+                          title="Download file"
+                        >
+                          {downloading === ev.rootHash ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                        </button>
+                        <a
+                          href={`${EXPLORER_URL}/tx/${ev.rootHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg text-zinc-400 hover:text-neon-purple hover:bg-neon-purple/10 transition-all"
+                          title="View on explorer"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                       </div>
                     </td>
                   </tr>
@@ -147,6 +189,16 @@ export default function EvidencePage() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-zinc-500">by {truncateAddress(ev.submitter)}</span>
                   <code className="text-xs text-zinc-600 font-mono">{ev.rootHash.slice(0, 16)}...</code>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => handleDownload(ev)}
+                    disabled={downloading === ev.rootHash}
+                    className="text-xs text-neon-cyan hover:underline flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {downloading === ev.rootHash ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                    Download
+                  </button>
                 </div>
               </div>
             ))}

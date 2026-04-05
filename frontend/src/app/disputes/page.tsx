@@ -14,6 +14,8 @@ import {
   hasVoted,
   getUserEscrows,
   getPendingWithdrawal,
+  submitEvidence as submitEvidenceOnChain,
+  recordAIVerdict,
   EscrowStatus,
   STATUS_LABELS,
   STATUS_COLORS,
@@ -340,7 +342,7 @@ function EscrowCard({
 
           {/* Evidence Section */}
           {escrow.status !== EscrowStatus.Created && (
-            <EvidenceSection escrowId={escrowId} currentUser={currentUser} isParty={isBuyer || isSeller} onUpdate={onUpdate} />
+            <EvidenceSection escrowId={escrowId} escrow={escrow} currentUser={currentUser} isParty={isBuyer || isSeller} onUpdate={onUpdate} />
           )}
 
           {/* Voting Section */}
@@ -357,11 +359,13 @@ function EscrowCard({
 
 function EvidenceSection({
   escrowId,
+  escrow,
   currentUser,
   isParty,
   onUpdate,
 }: {
   escrowId: bigint;
+  escrow: Escrow;
   currentUser: string;
   isParty: boolean;
   onUpdate: () => void;
@@ -369,6 +373,19 @@ function EvidenceSection({
   const { t } = useI18n();
   const [evidenceList, setEvidenceList] = useState<EvidenceType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [showUpload, setShowUpload] = useState(false);
+
+  // AI Arbitration state
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<{
+    buyerWins: boolean;
+    confidence: number;
+    reasoning: string;
+  } | null>(null);
+  const [aiError, setAiError] = useState("");
 
   useEffect(() => {
     loadEvidence();
@@ -387,16 +404,146 @@ function EvidenceSection({
     }
   };
 
+  const handleFileDrop = async (file: File) => {
+    setUploading(true);
+    setUploadStep("Preparing upload...");
+    setUploadError("");
+
+    try {
+      // Step 1: Create blob and generate Merkle tree
+      setUploadStep("Generating Merkle tree...");
+      const { createBlob, generateMerkleTree, getRootHash, uploadToStorage, getNetworkConfig } = await import("@/lib/storage");
+      const blob = createBlob(file);
+      const [tree, treeErr] = await generateMerkleTree(blob);
+      if (treeErr || !tree) throw new Error(treeErr?.message || "Failed to generate Merkle tree");
+
+      const [rootHash, hashErr] = getRootHash(tree);
+      if (hashErr || !rootHash) throw new Error(hashErr?.message || "Failed to get root hash");
+
+      // Step 2: Upload to 0G Storage
+      setUploadStep("Uploading to 0G Storage...");
+      const networkConfig = getNetworkConfig("turbo");
+      const { getBrowserProvider, getBrowserSigner } = await import("@/lib/storage");
+      const [provider, provErr] = await getBrowserProvider();
+      if (provErr || !provider) throw new Error(provErr?.message || "No wallet provider");
+      const [signer, signerErr] = await getBrowserSigner(provider);
+      if (signerErr || !signer) throw new Error(signerErr?.message || "Failed to get signer");
+
+      const [uploaded, uploadErr] = await uploadToStorage(blob, networkConfig.storageRpc, networkConfig.l1Rpc, signer);
+      if (!uploaded || uploadErr) throw new Error(uploadErr?.message || "Storage upload failed");
+
+      // Step 3: Submit evidence on-chain
+      setUploadStep("Submitting evidence on-chain...");
+      await submitEvidenceOnChain(escrowId, rootHash, file.name, `Evidence uploaded by ${truncateAddress(currentUser)}`);
+      
+      setShowUpload(false);
+      await loadEvidence();
+    } catch (err: any) {
+      setUploadError(err?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      setUploadStep("");
+    }
+  };
+
+  const handleAIArbitrate = async () => {
+    setAiLoading(true);
+    setAiError("");
+    setAiResult(null);
+
+    try {
+      // Fetch evidence content from 0G Storage for AI context
+      const { downloadByRootHash } = await import("@/lib/storage");
+      const { getNetworkConfig } = await import("@/lib/storage");
+      const networkConfig = getNetworkConfig("turbo");
+
+      const evidenceContexts: Array<{ filename: string; content: string }> = [];
+      for (const ev of evidenceList) {
+        try {
+          const [data] = await downloadByRootHash(ev.rootHash, networkConfig.storageRpc);
+          if (data) {
+            const text = new TextDecoder().decode(data);
+            evidenceContexts.push({ filename: ev.filename, content: text.slice(0, 2000) });
+          }
+        } catch {
+          evidenceContexts.push({ filename: ev.filename, content: "[Binary file - could not read content]" });
+        }
+      }
+
+      // Call AI arbitration API
+      const res = await fetch("/api/compute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "arbitrate",
+          disputeDescription: escrow.description,
+          evidenceContexts,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "AI arbitration failed");
+      
+      setAiResult(data.verdict);
+
+      // Record AI verdict hash on-chain
+      const verdictStr = JSON.stringify(data.verdict);
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(verdictStr));
+      const hashHex = "0x" + Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+      
+      try {
+        await recordAIVerdict(escrowId, hashHex);
+      } catch {
+        // Non-critical — AI analysis is still shown
+        console.warn("Failed to record AI verdict on-chain");
+      }
+    } catch (err: any) {
+      setAiError(err?.message || "AI arbitration failed");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
-    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-      <div className="flex items-center justify-between mb-3">
+    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-4">
+      <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
           <FileText className="w-4 h-4 text-neon-purple" />
           {t("disputes.evidence.title")}
           <span className="text-xs text-zinc-500 font-normal">({evidenceList.length})</span>
         </h3>
+        {isParty && (
+          <button
+            onClick={() => setShowUpload(!showUpload)}
+            className="text-xs text-neon-cyan hover:text-neon-cyan/80 transition-colors flex items-center gap-1"
+          >
+            <Upload className="w-3 h-3" />
+            {showUpload ? "Hide Upload" : "Upload Evidence"}
+          </button>
+        )}
       </div>
 
+      {/* Upload Area */}
+      {showUpload && isParty && (
+        <div className="space-y-3">
+          {uploading && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-neon-cyan/5 border border-neon-cyan/10">
+              <Loader2 className="w-4 h-4 animate-spin text-neon-cyan" />
+              <span className="text-xs text-neon-cyan">{uploadStep}</span>
+            </div>
+          )}
+          {uploadError && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-xs">
+              <AlertCircle className="w-3 h-3" />
+              <span>{uploadError}</span>
+            </div>
+          )}
+          <FileDropzone onFileDrop={handleFileDrop} disabled={uploading} />
+        </div>
+      )}
+
+      {/* Evidence List */}
       {loading ? (
         <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />
       ) : evidenceList.length === 0 ? (
@@ -415,6 +562,66 @@ function EvidenceSection({
               <code className="text-xs text-zinc-600 font-mono truncate max-w-[120px]">{ev.rootHash.slice(0, 10)}...</code>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* AI Arbitration Panel */}
+      {escrow.status === EscrowStatus.Disputed && (
+        <div className="border-t border-white/[0.06] pt-4 space-y-3">
+          <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-neon-cyan" />
+            AI Arbitration
+            <span className="text-xs text-zinc-500 font-normal">0G Compute</span>
+          </h4>
+
+          {!aiResult && !aiError && (
+            <button
+              onClick={handleAIArbitrate}
+              disabled={aiLoading}
+              className="neon-button w-full flex items-center justify-center gap-2 py-2.5 text-sm"
+            >
+              {aiLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing evidence with AI...
+                </>
+              ) : (
+                <>
+                  <Cpu className="w-4 h-4" />
+                  Run AI Analysis
+                </>
+              )}
+            </button>
+          )}
+
+          {aiError && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-xs">
+              <AlertCircle className="w-3 h-3" />
+              <span>{aiError}</span>
+            </div>
+          )}
+
+          {aiResult && (
+            <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-bold ${aiResult.buyerWins ? "text-blue-400" : "text-red-400"}`}>
+                  {aiResult.buyerWins ? "Buyer Wins" : "Seller Wins"}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  Confidence: <span className="text-white font-medium">{aiResult.confidence}%</span>
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${
+                    aiResult.buyerWins ? "bg-blue-400" : "bg-red-400"
+                  }`}
+                  style={{ width: `${aiResult.confidence}%` }}
+                />
+              </div>
+              <p className="text-xs text-zinc-400 leading-relaxed">{aiResult.reasoning}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

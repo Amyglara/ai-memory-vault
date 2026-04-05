@@ -10,6 +10,7 @@
  * POST /api/compute?action=fund-provider     → Transfer funds to provider
  * POST /api/compute?action=ensure-ready      → Ensure provider is ready (ack + fund)
  * POST /api/compute?action=rag-context       → Fetch file content for RAG
+ * POST /api/compute?action=arbitrate          → AI dispute arbitration analysis
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,6 +24,7 @@ import {
   transferFundToProvider,
   getAccountInfo,
   fetchFileContent,
+  arbitrate,
   type ChatMessage,
 } from "@/lib/compute";
 
@@ -170,6 +172,21 @@ export async function POST(request: NextRequest) {
         }
         const content = await fetchFileContent(rootHash, storageRpc);
         return NextResponse.json({ success: true, content });
+      }
+
+      case "arbitrate": {
+        const { disputeDescription, evidenceContexts } = body;
+        if (!disputeDescription) {
+          return NextResponse.json(
+            { success: false, error: "disputeDescription is required" },
+            { status: 400 }
+          );
+        }
+        const result = await arbitrate(
+          disputeDescription,
+          evidenceContexts || []
+        );
+        return NextResponse.json({ success: true, ...result });
       }
 
       default:
