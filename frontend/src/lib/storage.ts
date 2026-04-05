@@ -74,14 +74,50 @@ export function getNetworkConfig(networkType: "standard" | "turbo"): NetworkConf
 
 // ===== Provider & Signer =====
 
+const ZG_CHAIN_ID = 16602; // 0G Galileo Testnet
+
 export async function getBrowserProvider(): Promise<
   [BrowserProvider | null, Error | null]
 > {
   try {
     if (!(window as any).ethereum) {
-      return [null, new Error("No Ethereum provider found. Please install MetaMask.")];
+      return [null, new Error("No Ethereum provider found. Please install MetaMask or OKX Wallet.")];
     }
-    const provider = new BrowserProvider((window as any).ethereum);
+
+    const ethereumProvider = (window as any).ethereum;
+
+    // CRITICAL: Ensure the provider is connected to 0G Galileo testnet
+    try {
+      const chainIdHex = await ethereumProvider.request({ method: "eth_chainId" });
+      const currentChainId = parseInt(chainIdHex, 16);
+      if (currentChainId !== ZG_CHAIN_ID) {
+        // Try to switch to the correct chain
+        await ethereumProvider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: `0x${ZG_CHAIN_ID.toString(16)}` }],
+        });
+      }
+    } catch (switchError: any) {
+      // If chain doesn't exist in wallet, try to add it
+      if (switchError?.code === 4902) {
+        await ethereumProvider.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: `0x${ZG_CHAIN_ID.toString(16)}`,
+            chainName: "0G Galileo Testnet",
+            nativeCurrency: { name: "OG", symbol: "OG", decimals: 18 },
+            rpcUrls: ["https://evmrpc-testnet.0g.ai"],
+            blockExplorerUrls: ["https://chainscan-galileo.0g.ai"],
+          }],
+        });
+      } else {
+        throw new Error(
+          `Please switch your wallet to "0G Galileo Testnet" (Chain ID: ${ZG_CHAIN_ID}) before uploading.`
+        );
+      }
+    }
+
+    const provider = new BrowserProvider(ethereumProvider);
     return [provider, null];
   } catch (error) {
     return [null, error instanceof Error ? error : new Error(String(error))];
@@ -217,6 +253,7 @@ export async function uploadToStorage(
   signer: any
 ): Promise<[boolean, Error | null]> {
   try {
+    console.log("[Storage] Starting upload to", storageRpc);
     const indexer = new Indexer(storageRpc);
     const uploadOptions = {
       taskSize: 10,
@@ -227,9 +264,22 @@ export async function uploadToStorage(
       fee: BigInt(0),
     };
     await indexer.upload(blob, l1Rpc, signer, uploadOptions);
+    console.log("[Storage] Upload complete");
     return [true, null];
-  } catch (error) {
-    return [false, error instanceof Error ? error : new Error(String(error))];
+  } catch (error: any) {
+    console.error("[Storage] Upload error:", error);
+    // Provide more actionable error messages
+    const msg = error?.message || String(error);
+    if (msg.includes("network") || msg.includes("fetch") || msg.includes("connect")) {
+      return [false, new Error("Network error: Could not reach 0G Storage node. Please ensure you are on 0G Galileo Testnet and try again.")];
+    }
+    if (msg.includes("insufficient") || msg.includes("balance") || msg.includes("funds")) {
+      return [false, new Error("Insufficient OG balance to pay storage fee. Please get testnet OG tokens.")];
+    }
+    if (msg.includes("rejected") || msg.includes("denied") || msg.includes("user")) {
+      return [false, new Error("Transaction rejected by user.")];
+    }
+    return [false, new Error(`Storage upload failed: ${msg}`)];
   }
 }
 
