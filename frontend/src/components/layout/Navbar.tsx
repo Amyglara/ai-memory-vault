@@ -8,10 +8,10 @@ import { truncateAddress } from "@/lib/utils";
 import { useI18n } from "@/context";
 import type { TranslationKey } from "@/lib/i18n";
 import {
-  Brain,
-  Upload,
-  MessageSquare,
-  Bot,
+  Shield,
+  PlusCircle,
+  Swords,
+  FileSearch,
   Menu,
   X,
   Wallet,
@@ -45,10 +45,10 @@ export default function Navbar() {
   }, [disconnect]);
 
   const navLinks: { href: string; label: TranslationKey; icon: React.ElementType }[] = [
-    { href: "/", label: "nav.dashboard", icon: Brain },
-    { href: "/upload", label: "nav.upload", icon: Upload },
-    { href: "/chat", label: "nav.chat", icon: MessageSquare },
-    { href: "/agents", label: "nav.agents", icon: Bot },
+    { href: "/", label: "nav.dashboard", icon: Shield },
+    { href: "/create", label: "nav.create", icon: PlusCircle },
+    { href: "/disputes", label: "nav.disputes", icon: Swords },
+    { href: "/evidence", label: "nav.evidence", icon: FileSearch },
   ];
 
   return (
@@ -58,11 +58,11 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-neon-glow flex items-center justify-center group-hover:shadow-neon transition-shadow duration-300">
-              <Brain className="w-5 h-5 text-white" />
+              <Shield className="w-5 h-5 text-white" />
             </div>
             <span className="text-lg font-bold tracking-tight">
-              <span className="neon-text">AI Memory</span>{" "}
-              <span className="text-zinc-400">Vault</span>
+              <span className="neon-text">Trust</span>
+              <span className="text-zinc-400">Gate</span>
             </span>
           </Link>
 
@@ -249,7 +249,6 @@ export default function Navbar() {
 
 /**
  * Hook to access the Reown AppKit modal open/close functions.
- * Uses the exported `modal` singleton from @reown/appkit/react.
  */
 function useReownModal() {
   const [modalApi, setModalApi] = useState<{
@@ -258,10 +257,8 @@ function useReownModal() {
   } | null>(null);
 
   useEffect(() => {
-    // Import the modal singleton — it's set by createAppKit() in context/index.tsx
     import("@reown/appkit/react").then((mod) => {
       if (mod.modal) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const m = mod.modal!;
         setModalApi({
           open: (opts) => m.open(opts),

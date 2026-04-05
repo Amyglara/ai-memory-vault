@@ -20,7 +20,7 @@ function LoadingFallback() {
           <div className="absolute inset-2 rounded-full border-2 border-t-neon-cyan border-r-transparent border-b-transparent border-l-transparent animate-spin" />
         </div>
         <p className="text-zinc-400 text-sm tracking-wider uppercase">
-          Initializing Vault...
+          Initializing TrustGate...
         </p>
       </div>
     </div>

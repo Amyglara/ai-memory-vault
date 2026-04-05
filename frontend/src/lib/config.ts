@@ -19,8 +19,8 @@ export const FLOW_ADDRESS = process.env.NEXT_PUBLIC_FLOW_ADDRESS || "0x22E03a6A8
 export const COMPUTE_DEFAULT_MODEL = process.env.NEXT_PUBLIC_COMPUTE_MODEL || "qwen-2.5-7b-instruct";
 
 // App metadata
-export const APP_NAME = "AI Memory Vault";
-export const APP_DESCRIPTION = "Decentralized AI Agent Memory on 0G Network";
+export const APP_NAME = "TrustGate";
+export const APP_DESCRIPTION = "Decentralized Escrow & Arbitration Protocol on 0G Network";
 
 // Chain definition for wagmi
 export const zgTestnet = {

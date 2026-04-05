@@ -10,6 +10,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: { enabled: true, runs: 200 },
       evmVersion: 'cancun', // REQUIRED for 0G Chain
+      viaIR: true, // Required for complex contracts (prevents StackTooDeep)
     },
   },
   networks: {

@@ -4,7 +4,7 @@ import * as path from 'path';
 
 async function main() {
   console.log('========================================');
-  console.log('  AI Memory Vault - Contract Deployment');
+  console.log('  TrustGate Escrow - Contract Deployment');
   console.log('========================================\n');
 
   // Get deployer info
@@ -24,33 +24,33 @@ async function main() {
   console.log(`Network: Chain ID ${Number(network.chainId)}`);
   console.log(`RPC: ${network.name === 'homestead' ? '0G Testnet' : network.name}\n`);
 
-  // Deploy MemoryVault
-  console.log('Deploying MemoryVault...');
-  const MemoryVault = await ethers.getContractFactory('MemoryVault');
-  const vault = await MemoryVault.deploy();
-  await vault.waitForDeployment();
+  // Deploy TrustGateEscrow
+  console.log('Deploying TrustGateEscrow...');
+  const TrustGateEscrow = await ethers.getContractFactory('TrustGateEscrow');
+  const escrow = await TrustGateEscrow.deploy();
+  await escrow.waitForDeployment();
 
-  const vaultAddress = await vault.getAddress();
-  console.log(`\n✅ MemoryVault deployed at: ${vaultAddress}`);
+  const escrowAddress = await escrow.getAddress();
+  console.log(`\n✅ TrustGateEscrow deployed at: ${escrowAddress}`);
 
   // Wait for a few blocks to ensure contract is indexed
   console.log('\nWaiting for block confirmations...');
-  await vault.deploymentTransaction()?.wait(3);
+  await escrow.deploymentTransaction()?.wait(3);
 
   // Generate deployment info
   const deploymentInfo = {
     network: Number(network.chainId) === 16602 ? 'galileo-testnet' : 'mainnet',
     chainId: Number(network.chainId),
-    contractName: 'MemoryVault',
-    contractAddress: vaultAddress,
+    contractName: 'TrustGateEscrow',
+    contractAddress: escrowAddress,
     deployer: deployer.address,
     deployerBalance: ethers.formatEther(balance),
     timestamp: new Date().toISOString(),
-    txHash: vault.deploymentTransaction()?.hash,
+    txHash: escrow.deploymentTransaction()?.hash,
     explorer: {
-      contract: `https://chainscan-galileo.0g.ai/address/${vaultAddress}`,
-      tx: vault.deploymentTransaction()?.hash
-        ? `https://chainscan-galileo.0g.ai/tx/${vault.deploymentTransaction()?.hash}`
+      contract: `https://chainscan-galileo.0g.ai/address/${escrowAddress}`,
+      tx: escrow.deploymentTransaction()?.hash
+        ? `https://chainscan-galileo.0g.ai/tx/${escrow.deploymentTransaction()?.hash}`
         : '',
     },
     blockExplorer: Number(network.chainId) === 16602
@@ -65,24 +65,24 @@ async function main() {
   }
 
   const networkName = Number(network.chainId) === 16602 ? 'testnet' : 'mainnet';
-  const deployFile = path.join(deployDir, `${networkName}.json`);
+  const deployFile = path.join(deployDir, `trustgate-${networkName}.json`);
   fs.writeFileSync(deployFile, JSON.stringify(deploymentInfo, null, 2));
 
   // Also update the latest symlink
-  const latestFile = path.join(deployDir, 'latest.json');
+  const latestFile = path.join(deployDir, 'trustgate-latest.json');
   fs.writeFileSync(latestFile, JSON.stringify(deploymentInfo, null, 2));
 
   console.log('\n========================================');
   console.log('  Deployment Summary');
   console.log('========================================');
-  console.log(`Contract:    MemoryVault`);
-  console.log(`Address:     ${vaultAddress}`);
+  console.log(`Contract:    TrustGateEscrow`);
+  console.log(`Address:     ${escrowAddress}`);
   console.log(`Deployer:    ${deployer.address}`);
   console.log(`Network:     ${networkName} (Chain ${Number(network.chainId)})`);
   console.log(`Explorer:    ${deploymentInfo.explorer.contract}`);
   console.log(`\nDeployment saved to: ${deployFile}`);
   console.log('\nVerify contract with:');
-  console.log(`  npx hardhat verify --network 0g-${networkName} ${vaultAddress}`);
+  console.log(`  npx hardhat verify --network 0g-${networkName} ${escrowAddress}`);
 }
 
 main().catch((error) => {

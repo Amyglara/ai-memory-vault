@@ -5,33 +5,35 @@ import Link from "next/link";
 import { useAccount, useBalance } from "wagmi";
 import { useNetwork, useI18n } from "@/context";
 import {
-  Brain,
-  Upload,
-  MessageSquare,
-  Bot,
-  ArrowRight,
   Shield,
+  PlusCircle,
+  Swords,
+  FileSearch,
+  ArrowRight,
   Database,
-  Cpu,
+  Lock,
+  AlertTriangle,
   FileText,
   Zap,
   Loader2,
+  Scale,
+  Cpu,
 } from "lucide-react";
 import {
-  getFileCount,
-  getAgentCount,
-  getFilesByOwner,
-  getAgentsByOwner,
+  getEscrowStats,
+  getTotalValueLocked,
+  getUserEscrows,
 } from "@/lib/contracts";
 import type { Address } from "viem";
 
 // ===== Types =====
 
-interface ChainStats {
-  totalFiles: number;
-  totalAgents: number;
-  myFiles: number;
-  myAgents: number;
+interface DashboardStats {
+  total: number;
+  funded: number;
+  disputed: number;
+  totalLocked: string;
+  myEscrows: number;
   loading: boolean;
 }
 
@@ -44,13 +46,14 @@ export default function DashboardPage() {
     chainId: 16602,
   });
   const { networkType } = useNetwork();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
 
-  const [stats, setStats] = useState<ChainStats>({
-    totalFiles: 0,
-    totalAgents: 0,
-    myFiles: 0,
-    myAgents: 0,
+  const [stats, setStats] = useState<DashboardStats>({
+    total: 0,
+    funded: 0,
+    disputed: 0,
+    totalLocked: "0",
+    myEscrows: 0,
     loading: false,
   });
 
@@ -58,32 +61,27 @@ export default function DashboardPage() {
     setStats((prev) => ({ ...prev, loading: true }));
 
     try {
-      const [totalFiles, totalAgents] = await Promise.all([
-        getFileCount(),
-        getAgentCount(),
+      const [escrowStats, tvl] = await Promise.all([
+        getEscrowStats(),
+        getTotalValueLocked(),
       ]);
 
-      let myFiles = 0;
-      let myAgents = 0;
-
+      let myEscrows = 0;
       if (isConnected && address) {
         try {
-          const [myFileIds, myAgentIds] = await Promise.all([
-            getFilesByOwner(address as Address),
-            getAgentsByOwner(address as Address),
-          ]);
-          myFiles = myFileIds.length;
-          myAgents = myAgentIds.length;
+          const myIds = await getUserEscrows(address as Address);
+          myEscrows = myIds.length;
         } catch {
-          // Owner queries may fail for non-registered users
+          // User may not have any escrows yet
         }
       }
 
       setStats({
-        totalFiles: Number(totalFiles),
-        totalAgents: Number(totalAgents),
-        myFiles,
-        myAgents,
+        total: Number(escrowStats.total),
+        funded: Number(escrowStats.funded),
+        disputed: Number(escrowStats.disputed),
+        totalLocked: (Number(tvl) / 1e18).toFixed(4),
+        myEscrows,
         loading: false,
       });
     } catch {
@@ -91,36 +89,19 @@ export default function DashboardPage() {
     }
   }, [isConnected, address]);
 
-  // Load stats on mount and when wallet connects
   useEffect(() => {
     loadStats();
   }, [loadStats]);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(loadStats, 30000);
     return () => clearInterval(interval);
   }, [loadStats]);
 
-  // AI Conversations count from localStorage
-  const conversationCount = isConnected
-    ? (() => {
-        try {
-          const stored = localStorage.getItem(
-            `vault_conversations_${address?.toLowerCase()}`
-          );
-          return stored ? JSON.parse(stored).length : 0;
-        } catch {
-          return 0;
-        }
-      })()
-    : 0;
-
   return (
     <div className="space-y-8 animate-slide-up">
       {/* Hero Section */}
       <section className="relative overflow-hidden rounded-3xl glass-card p-8 md:p-12">
-        {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 via-transparent to-neon-purple/5" />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-4">
@@ -163,18 +144,18 @@ export default function DashboardPage() {
             ) : (
               <>
                 <Link
-                  href="/upload"
+                  href="/create"
                   className="neon-button flex items-center gap-2"
                 >
-                  <Upload className="w-4 h-4" />
-                  {t("dashboard.hero.uploadMemory")}
+                  <PlusCircle className="w-4 h-4" />
+                  {t("dashboard.hero.createEscrow")}
                 </Link>
                 <Link
-                  href="/chat"
+                  href="/disputes"
                   className="neon-button-outline flex items-center gap-2"
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  {t("dashboard.hero.startChat")}
+                  <Swords className="w-4 h-4" />
+                  {t("dashboard.hero.manageDisputes")}
                 </Link>
               </>
             )}
@@ -186,39 +167,35 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Database}
-          label={t("dashboard.stats.storedFiles")}
-          value={stats.loading ? "..." : String(stats.totalFiles)}
+          label={t("dashboard.stats.totalEscrows")}
+          value={stats.loading ? "..." : String(stats.total)}
           sublabel={
-            isConnected && stats.myFiles > 0
-              ? t("dashboard.stats.yours", { count: stats.myFiles })
-              : "0G Storage"
+            isConnected && stats.myEscrows > 0
+              ? t("dashboard.stats.yours", { count: stats.myEscrows })
+              : "0G Chain"
           }
           color="cyan"
         />
         <StatCard
-          icon={Bot}
-          label={t("dashboard.stats.aiAgents")}
-          value={stats.loading ? "..." : String(stats.totalAgents)}
-          sublabel={
-            isConnected && stats.myAgents > 0
-              ? t("dashboard.stats.yours", { count: stats.myAgents })
-              : "0G Chain"
-          }
-          color="purple"
-        />
-        <StatCard
-          icon={MessageSquare}
-          label={t("dashboard.stats.conversations")}
-          value={isConnected ? String(conversationCount) : "—"}
-          sublabel="0G Compute"
+          icon={Lock}
+          label={t("dashboard.stats.active")}
+          value={stats.loading ? "..." : String(stats.funded)}
+          sublabel="Funded + Evidence"
           color="blue"
         />
         <StatCard
-          icon={Brain}
-          label={t("dashboard.stats.network")}
-          value="0G"
-          sublabel={t("dashboard.stats.galileoTestnet")}
-          color="cyan"
+          icon={AlertTriangle}
+          label={t("dashboard.stats.disputed")}
+          value={stats.loading ? "..." : String(stats.disputed)}
+          sublabel="Awaiting Resolution"
+          color="red"
+        />
+        <StatCard
+          icon={Scale}
+          label={t("dashboard.stats.totalLocked")}
+          value={stats.loading ? "..." : stats.totalLocked}
+          sublabel="OG Tokens"
+          color="purple"
         />
       </section>
 
@@ -227,24 +204,24 @@ export default function DashboardPage() {
         <h2 className="text-lg font-semibold text-white mb-4">{t("dashboard.quickActions")}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <QuickAction
-            href="/upload"
-            icon={Upload}
-            title={t("dashboard.quickActions.uploadDoc")}
-            description={t("dashboard.quickActions.uploadDesc")}
+            href="/create"
+            icon={PlusCircle}
+            title={t("dashboard.quickActions.createEscrow")}
+            description={t("dashboard.quickActions.createEscrowDesc")}
             disabled={!isConnected}
           />
           <QuickAction
-            href="/chat"
-            icon={MessageSquare}
-            title={t("dashboard.quickActions.aiConversation")}
-            description={t("dashboard.quickActions.aiConversationDesc")}
+            href="/disputes"
+            icon={Swords}
+            title={t("dashboard.quickActions.manageDisputes")}
+            description={t("dashboard.quickActions.manageDisputesDesc")}
             disabled={!isConnected}
           />
           <QuickAction
-            href="/agents"
-            icon={Bot}
-            title={t("dashboard.quickActions.manageAgents")}
-            description={t("dashboard.quickActions.manageAgentsDesc")}
+            href="/evidence"
+            icon={FileSearch}
+            title={t("dashboard.quickActions.evidenceLib")}
+            description={t("dashboard.quickActions.evidenceLibDesc")}
             disabled={!isConnected}
           />
           <QuickAction
@@ -271,14 +248,14 @@ export default function DashboardPage() {
           />
           <StepCard
             step={2}
-            icon={Cpu}
+            icon={Database}
             title={t("dashboard.howItWorks.step2.title")}
             description={t("dashboard.howItWorks.step2.desc")}
             stepLabel="STEP"
           />
           <StepCard
             step={3}
-            icon={Zap}
+            icon={Cpu}
             title={t("dashboard.howItWorks.step3.title")}
             description={t("dashboard.howItWorks.step3.desc")}
             stepLabel="STEP"
@@ -302,12 +279,13 @@ function StatCard({
   label: string;
   value: string;
   sublabel: string;
-  color: "cyan" | "purple" | "blue";
+  color: "cyan" | "purple" | "blue" | "red";
 }) {
   const colorMap = {
     cyan: "text-neon-cyan bg-neon-cyan/10",
     purple: "text-neon-purple bg-neon-purple/10",
     blue: "text-neon-blue bg-neon-blue/10",
+    red: "text-red-400 bg-red-400/10",
   };
 
   return (

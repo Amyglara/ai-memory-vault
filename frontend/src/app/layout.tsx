@@ -14,10 +14,10 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Memory Vault — Decentralized AI Agent Memory",
+  title: "TrustGate — Decentralized Escrow & Arbitration Protocol",
   description:
-    "Store AI agent memories and knowledge on 0G decentralized storage. Powered by 0G Storage, 0G Compute, and 0G Chain.",
-  keywords: ["0G", "AI", "decentralized", "storage", "memory", "blockchain"],
+    "Trust-backed escrow and AI-powered arbitration on 0G Network. Create escrows, submit evidence, and resolve disputes with trust-score-weighted arbitrator voting.",
+  keywords: ["0G", "escrow", "arbitration", "decentralized", "trust", "blockchain", "AI"],
 };
 
 export default function RootLayout({
